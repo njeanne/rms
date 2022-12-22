@@ -232,7 +232,7 @@ def plot_rmsd(src, smp, dir_path, fmt, subtitle):
     return out_path_plot
 
 
-def plot_rmsf(src_rmsf, smp, dir_path, fmt, subtitle, path_domains=None):
+def plot_rmsf(src_rmsf, smp, dir_path, fmt, subtitle, src_domains=None):
     """
     Plot the RMSF.
 
@@ -246,12 +246,12 @@ def plot_rmsf(src_rmsf, smp, dir_path, fmt, subtitle, path_domains=None):
     :type fmt: str
     :param subtitle: the plot subtitle.
     :type subtitle: str
-    :param path_domains: the CSV domains path.
-    :type path_domains: str
+    :param src_domains: the domains coordinates and info.
+    :type src_domains: Pandas.Dataframe
     :return: the path of the plot.
     :rtype: str
     """
-    if path_domains:
+    if src_domains is not None:
         fig, axs = plt.subplots(2, 1, layout="constrained", height_ratios=[10, 1])
         # axes 0
         sns.lineplot(data=src_rmsf, x="residues", y="RMSF", ax=axs[0])
@@ -261,7 +261,6 @@ def plot_rmsf(src_rmsf, smp, dir_path, fmt, subtitle, path_domains=None):
         axs[0].set_title(subtitle)
         # axes 1
         features = []
-        src_domains = pd.read_csv(path_domains)
         row = None
         for _, row in src_domains.iterrows():
             features.append(GraphicFeature(start=row["start"], end=row["end"], strand=+1, color=row["color"],
@@ -277,6 +276,7 @@ def plot_rmsf(src_rmsf, smp, dir_path, fmt, subtitle, path_domains=None):
         axs.set_xlim(0, max(src_rmsf["residues"] + 1))
         axs.set_title(subtitle)
 
+    fig.tight_layout()
     fig.suptitle(f"Root Mean Square Factors: {smp.replace('_', ' ')}", fontsize="large", fontweight="bold")
 
     out_path_plot = os.path.join(dir_path, f"RMSF_{smp}.{fmt}")
@@ -285,7 +285,7 @@ def plot_rmsf(src_rmsf, smp, dir_path, fmt, subtitle, path_domains=None):
 
 
 def rms(rms_type, traj, out_dir, out_basename, format_output, ns_frame=None, frames_lim=None, mask=None,
-        atom_from_res=None, domains_path=None):
+        atom_from_res=None, domains=None):
     """
     Compute the Root Mean Square Deviation or the Root Mean Square Factor and create the plot.
 
@@ -307,8 +307,8 @@ def rms(rms_type, traj, out_dir, out_basename, format_output, ns_frame=None, fra
     :type mask: str
     :param atom_from_res: the atom number corresponding to a residue number.
     :type atom_from_res: dict
-    :param domains_path: the path to the CSV domains file.
-    :type: str
+    :param domains: the domains coordinates and info.
+    :type: Pandas.Dataframe
     :raises ValueError: unknown RMS type
     """
     if frames_lim:
@@ -342,7 +342,7 @@ def rms(rms_type, traj, out_dir, out_basename, format_output, ns_frame=None, fra
         tmp_source = pd.DataFrame({"atoms": rmsf_traj.T[0], f"{rms_type}": rmsf_traj.T[1]})
         source = rmsf_residues(tmp_source, atom_from_res)
         subtitle_plot = f"{subtitle_plot}\nAverage RMSF of the atoms by residues"
-        plot_path = plot_rmsf(source, out_basename, out_dir, format_output, subtitle_plot, domains_path)
+        plot_path = plot_rmsf(source, out_basename, out_dir, format_output, subtitle_plot, domains)
     else:
         raise ValueError(f"{rms_type} is not a valid case, only \"RMSD\" or \"RMSF\" are allowed.")
     source.to_csv(path_csv, index=False)
@@ -420,6 +420,13 @@ if __name__ == "__main__":
         logging.error(exc)
         sys.exit(1)
 
+    if args.domains:
+        try:
+            domains_data = pd.read_csv(args.domains)
+        except FileNotFoundError as exc:
+            logging.error(exc)
+            sys.exit(1)
+
     # set the seaborn plots theme and size
     sns.set_theme()
     rcParams["figure.figsize"] = 15, 12
@@ -451,7 +458,7 @@ if __name__ == "__main__":
         rms("RMSD", trajectory, args.out, basename, args.format, args.ps_by_frame, frames_limits, args.mask)
         # compute RMSF and create the plot
         rms("RMSF", trajectory, args.out, basename, args.format, args.ps_by_frame, frames_limits, args.mask, atom_res,
-            args.domains)
+            domains_data)
     except ValueError as exc:
         logging.error(exc, exc_info=True)
         sys.exit(1)
