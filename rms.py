@@ -376,7 +376,7 @@ if __name__ == "__main__":
                         help="the frames to use for the RMSD and the RMSF, the format must be two integers separated "
                              "by an hyphen, i.e to load the trajectory from the frame 500 to 2000: --frames 500-2000")
     parser.add_argument("-m", "--mask", required=False, type=str, default="", help="the residues mask selection.")
-    parser.add_argument("-r", "--domains", required=False, type=str, default="",
+    parser.add_argument("-d", "--domains", required=False, type=str, default="",
                         help="the path to the CSV domains file. A comma separated file, the first column is the "
                              "annotation name, the 2nd is the residue start coordinate, the 3rd is the residue end "
                              "coordinate, the last one is the color to apply in hexadecimal format. The coordinate are "
