@@ -45,4 +45,4 @@ or the RMSF plot **with** the `--domains` option:
 
 ![RMSF plot](doc/_static/RMSF_with_domains.svg)
 
-and the associated CSV files.# rms
+and the associated CSV files.
