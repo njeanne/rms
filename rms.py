@@ -7,7 +7,7 @@ Created on 09 Dec. 2022
 __author__ = "Nicolas JEANNE"
 __copyright__ = "GNU General Public License"
 __email__ = "jeanne.n@chu-toulouse.fr"
-__version__ = "1.0.0"
+__version__ = "1.0.1"
 
 import argparse
 import logging
@@ -275,10 +275,8 @@ def plot_rmsf(src_rmsf, smp, dir_path, fmt, subtitle, src_domains=None):
         axs.set_xlabel("residues", fontweight="bold")
         axs.set_xlim(0, max(src_rmsf["residues"] + 1))
         axs.set_title(subtitle)
-
-    fig.tight_layout()
     fig.suptitle(f"Root Mean Square Factors: {smp.replace('_', ' ')}", fontsize="large", fontweight="bold")
-
+    fig.tight_layout()
     out_path_plot = os.path.join(dir_path, f"RMSF_{smp}.{fmt}")
     fig.savefig(out_path_plot)
     return out_path_plot
