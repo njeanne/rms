@@ -184,23 +184,35 @@ def rmsf_residues(tmp, data):
     :return: the average RMSF by residue.
     :rtype: pandas.DataFrame
     """
+    # get the residues of the RMSF analysis
     residue_rmsf = {"residues": [], "RMSF": []}
-    tmp_res_nb = 1
-    rmsf_for_current_res = []
+    for _, row in tmp.iterrows():
+        residue_nb_for_current_atom = data[int(row["atoms"])]
+        if residue_nb_for_current_atom not in residue_rmsf["residues"]:
+            residue_rmsf["residues"].append(residue_nb_for_current_atom)
+    idx_residue_of_interest = 0
+    current_residue_nb = residue_rmsf["residues"][idx_residue_of_interest]
+    rmsf_for_current_residue = []
     for _, row in tmp.iterrows():
         atom_nb = int(row["atoms"])
-        res_nb = data[atom_nb]
-        if res_nb == tmp_res_nb:
-            rmsf_for_current_res.append(row["RMSF"])
+        residue_nb_for_current_atom = data[atom_nb]
+        if residue_nb_for_current_atom == current_residue_nb:
+            rmsf_for_current_residue.append(row["RMSF"])
         else:
-            residue_rmsf["residues"].append(tmp_res_nb)
-            residue_rmsf["RMSF"].append(mean(rmsf_for_current_res))
-            # set values for the new residue
-            tmp_res_nb += 1
-            rmsf_for_current_res = [row["RMSF"]]
+            if residue_nb_for_current_atom in residue_rmsf["residues"]:
+                if len(rmsf_for_current_residue) > 1:
+                    residue_rmsf["RMSF"].append(mean(rmsf_for_current_residue))
+                else:  # only one atom, no average computation
+                    residue_rmsf["RMSF"].append(rmsf_for_current_residue[0])
+            rmsf_for_current_residue = [row["RMSF"]]
+            # update the current residue
+            idx_residue_of_interest += 1
+            current_residue_nb = residue_rmsf["residues"][idx_residue_of_interest]
     # final residue
-    residue_rmsf["residues"].append(tmp_res_nb)
-    residue_rmsf["RMSF"].append(mean(rmsf_for_current_res))
+    if len(rmsf_for_current_residue) > 1:
+        residue_rmsf["RMSF"].append(mean(rmsf_for_current_residue))
+    else:   # only one atom, no average computation
+        residue_rmsf["RMSF"].append(rmsf_for_current_residue[0])
     return pd.DataFrame.from_dict(residue_rmsf)
 
 
@@ -254,10 +266,9 @@ def plot_rmsf(src_rmsf, smp, dir_path, fmt, subtitle, src_domains=None):
     if src_domains is not None:
         fig, axs = plt.subplots(2, 1, layout="constrained", height_ratios=[10, 1])
         # axes 0
-        sns.lineplot(data=src_rmsf, x="residues", y="RMSF", ax=axs[0])
+        sns.lineplot(data=src_rmsf, x="residues", y="RMSF", ax=axs[0], marker="o")
         axs[0].set_ylabel("RMSF (\u212B)", fontweight="bold")
         axs[0].set_xlabel("residues", fontweight="bold")
-        axs[0].set_xlim(0, max(src_rmsf["residues"] + 1))
         axs[0].set_title(subtitle)
         # axes 1
         features = []
@@ -265,6 +276,8 @@ def plot_rmsf(src_rmsf, smp, dir_path, fmt, subtitle, src_domains=None):
         for _, row in src_domains.iterrows():
             features.append(GraphicFeature(start=row["start"], end=row["end"], strand=+1, color=row["color"],
                                            label=row["domain"]))
+        # set the last residue for the X axes 0 superior limit matches with the domains representation
+        axs[0].set_xlim(0, row["end"] + 1)
 
         record = GraphicRecord(sequence_length=row["end"] + 1, features=features, plots_indexing="genbank")
         ax_domains, _ = record.plot(ax=axs[1])
