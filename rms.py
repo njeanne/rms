@@ -7,7 +7,7 @@ Created on 09 Dec. 2022
 __author__ = "Nicolas JEANNE"
 __copyright__ = "GNU General Public License"
 __email__ = "jeanne.n@chu-toulouse.fr"
-__version__ = "1.0.1"
+__version__ = "1.0.2"
 
 import argparse
 import logging
@@ -322,13 +322,15 @@ def rms(rms_type, traj, out_dir, out_basename, format_output, ns_frame=None, fra
     :type: Pandas.Dataframe
     :raises ValueError: unknown RMS type
     """
+    log_txt = f"{rms_type} computation"
+    if mask:
+        log_txt = f"{log_txt}, with Mask {mask}"
     if frames_lim:
         range_frames = [x for x in range(frames_lim[0], frames_lim[1])]
-        logging.info(f"{rms_type} computation:\tUsing frames {frames_lim[0]} to {frames_lim[1]} and frame 0 as "
-                     f"reference.")
+        log_txt = f"{log_txt}, using frames {frames_lim[0]} to {frames_lim[1]} and frame 0 as reference."
     else:
         range_frames = [x for x in range(traj.n_frames)]
-        logging.info(f"{rms_type} computation:")
+    logging.info(f"{log_txt}:")
 
     path_csv = f"{os.path.join(out_dir, f'{rms_type}_{out_basename}')}.csv"
 
