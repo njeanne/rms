@@ -7,7 +7,7 @@ Created on 09 Dec. 2022
 __author__ = "Nicolas JEANNE"
 __copyright__ = "GNU General Public License"
 __email__ = "jeanne.n@chu-toulouse.fr"
-__version__ = "1.0.2"
+__version__ = "1.1.0"
 
 import argparse
 import logging
@@ -244,7 +244,7 @@ def plot_rmsd(src, smp, dir_path, fmt, subtitle):
     return out_path_plot
 
 
-def plot_rmsf(src_rmsf, smp, dir_path, fmt, subtitle, src_domains=None):
+def plot_rmsf(src_rmsf, smp, dir_path, fmt, subtitle, src_domains=None, use_dots=None):
     """
     Plot the RMSF.
 
@@ -260,13 +260,18 @@ def plot_rmsf(src_rmsf, smp, dir_path, fmt, subtitle, src_domains=None):
     :type subtitle: str
     :param src_domains: the domains coordinates and info.
     :type src_domains: Pandas.Dataframe
+    :param use_dots: if dots should be used to represent the RMSF value of each residue.
+    :type use_dots: bool
     :return: the path of the plot.
     :rtype: str
     """
     if src_domains is not None:
         fig, axs = plt.subplots(2, 1, layout="constrained", height_ratios=[10, 1])
         # axes 0
-        sns.lineplot(data=src_rmsf, x="residues", y="RMSF", ax=axs[0], marker="o")
+        if use_dots:
+            sns.lineplot(data=src_rmsf, x="residues", y="RMSF", ax=axs[0], marker="o")
+        else:
+            sns.lineplot(data=src_rmsf, x="residues", y="RMSF", ax=axs[0])
         axs[0].set_ylabel("RMSF (\u212B)", fontweight="bold")
         axs[0].set_xlabel("residues", fontweight="bold")
         axs[0].set_title(subtitle)
@@ -296,9 +301,9 @@ def plot_rmsf(src_rmsf, smp, dir_path, fmt, subtitle, src_domains=None):
 
 
 def rms(rms_type, traj, out_dir, out_basename, format_output, ns_frame=None, frames_lim=None, mask=None,
-        atom_from_res=None, domains=None):
+        atom_from_res=None, domains=None, use_dots_for_rmsf=None):
     """
-    Compute the Root Mean Square Deviation or the Root Mean Square Factor and create the plot.
+    Compute the Root Mean Square Deviation or the Root Mean Square Fluctuation and create the plot.
 
     :param rms_type: the type of analysis, RMSD or RMSF.
     :type rms_type: str
@@ -320,6 +325,8 @@ def rms(rms_type, traj, out_dir, out_basename, format_output, ns_frame=None, fra
     :type atom_from_res: dict
     :param domains: the domains coordinates and info.
     :type: Pandas.Dataframe
+    :param use_dots_for_rmsf: if dots should be used to represent the RMSF value of each residue.
+    :type use_dots_for_rmsf: bool
     :raises ValueError: unknown RMS type
     """
     log_txt = f"{rms_type} computation"
@@ -355,7 +362,7 @@ def rms(rms_type, traj, out_dir, out_basename, format_output, ns_frame=None, fra
         tmp_source = pd.DataFrame({"atoms": rmsf_traj.T[0], f"{rms_type}": rmsf_traj.T[1]})
         source = rmsf_residues(tmp_source, atom_from_res)
         subtitle_plot = f"{subtitle_plot}\nAverage RMSF of the atoms by residues"
-        plot_path = plot_rmsf(source, out_basename, out_dir, format_output, subtitle_plot, domains)
+        plot_path = plot_rmsf(source, out_basename, out_dir, format_output, subtitle_plot, domains, use_dots_for_rmsf)
     else:
         raise ValueError(f"{rms_type} is not a valid case, only \"RMSD\" or \"RMSF\" are allowed.")
     source.to_csv(path_csv, index=False)
@@ -394,6 +401,8 @@ if __name__ == "__main__":
                              "annotation name, the 2nd is the residue start coordinate, the 3rd is the residue end "
                              "coordinate, the last one is the color to apply in hexadecimal format. The coordinate are "
                              "1-indexed.")
+    parser.add_argument("-n", "--no-dots", required=False, action="store_true",
+                        help="use dots on the RMSF plot for each residue.")
     parser.add_argument("-f", "--format", required=False, default="svg",
                         choices=["eps", "jpg", "jpeg", "pdf", "pgf", "png", "ps", "raw", "svg", "svgz", "tif", "tiff"],
                         help="the output plots format: 'eps': 'Encapsulated Postscript', "
@@ -471,7 +480,7 @@ if __name__ == "__main__":
         rms("RMSD", trajectory, args.out, basename, args.format, args.ps_by_frame, frames_limits, args.mask)
         # compute RMSF and create the plot
         rms("RMSF", trajectory, args.out, basename, args.format, args.ps_by_frame, frames_limits, args.mask, atom_res,
-            domains_data)
+            domains_data, args.no_dots)
     except ValueError as exc:
         logging.error(exc, exc_info=True)
         sys.exit(1)
