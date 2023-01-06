@@ -1,6 +1,6 @@
 # rms
 
-Compute the [Root Mean Square Deviation](https://amberhub.chpc.utah.edu/amber-hub/start-here-rmsd-analysis-in-cpptraj/) (RMSD) and the [Root Mean Square Factors](https://amberhub.chpc.utah.edu/atomicfluct-rmsf/) (RMSF) plots from a trajectory file.
+Compute the [Root Mean Square Deviation](https://amberhub.chpc.utah.edu/amber-hub/start-here-rmsd-analysis-in-cpptraj/) (RMSD) and the [Root Mean Square Fluctuation](https://amberhub.chpc.utah.edu/atomicfluct-rmsf/) (RMSF) plots from a trajectory file.
 
 ## Conda environment
 
@@ -22,7 +22,7 @@ The usage of the script after activating the conda environment can be displayed 
 ./rms.py -h
 ```
 
-The analysis can be run with the following command on the test data provided in the repository:
+The analysis can be run with the following command on the test data provided in the repository (`data_for_dev` directory):
 ```shell script
 ./rms.py --out results --ps-by-frame 0.002 --mask @CA,C,O,N --format svg --remove-pdb --topology data/MD_data_test.parm data/MD_data_test.nc
 ```

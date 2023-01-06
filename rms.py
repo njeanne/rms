@@ -293,7 +293,7 @@ def plot_rmsf(src_rmsf, smp, dir_path, fmt, subtitle, src_domains=None, use_dots
         axs.set_xlabel("residues", fontweight="bold")
         axs.set_xlim(0, max(src_rmsf["residues"] + 1))
         axs.set_title(subtitle)
-    fig.suptitle(f"Root Mean Square Factors: {smp.replace('_', ' ')}", fontsize="large", fontweight="bold")
+    fig.suptitle(f"Root Mean Square Fluctuation: {smp.replace('_', ' ')}", fontsize="large", fontweight="bold")
     fig.tight_layout()
     out_path_plot = os.path.join(dir_path, f"RMSF_{smp}.{fmt}")
     fig.savefig(out_path_plot)
@@ -381,7 +381,7 @@ if __name__ == "__main__":
     Distributed on an "AS IS" basis without warranties or conditions of any kind, either express or implied.
 
     From a molecular dynamics trajectory file perform trajectory analysis. The script computes the Root Mean Square 
-    Deviation (RMSD) and the Root Mean Square Factor (RMSF).
+    Deviation (RMSD) and the Root Mean Square Fluctuation (RMSF).
     WARNING: the mask selection is only used to compute the RMSD and RMSF plots not for loading the trajectory because 
     if the mask defined the backbone, no hydrogen bond will be find.
     See: https://amber-md.github.io/pytraj/latest/atom_mask_selection.html#examples-atom-mask-selection-for-trajectory
@@ -442,6 +442,7 @@ if __name__ == "__main__":
         logging.error(exc)
         sys.exit(1)
 
+    domains_data = None
     if args.domains:
         try:
             domains_data = pd.read_csv(args.domains)
