@@ -7,7 +7,7 @@ Created on 09 Dec. 2022
 __author__ = "Nicolas JEANNE"
 __copyright__ = "GNU General Public License"
 __email__ = "jeanne.n@chu-toulouse.fr"
-__version__ = "1.2.0"
+__version__ = "1.3.0"
 
 import argparse
 import logging
@@ -83,20 +83,23 @@ def check_limits(value_arg):
     :return: the frames and region of interest limits
     :rtype: list
     """
-    lims = []
-    pattern = re.compile("(\\d+)-(\\d+)")
-    match = pattern.search(value_arg)
-    if match:
-        min_val = int(match.group(1))
-        max_val = int(match.group(2))
-        if min_val >= max_val:
-            raise argparse.ArgumentTypeError(f"--frames {value_arg} : minimum value {min_val} is > or = to "
-                                             f"maximum value {max_val}")
-        lims.append(min_val)
-        lims.append(max_val)
+    if value_arg:
+        lims = []
+        pattern = re.compile("(\\d+)-(\\d+)")
+        match = pattern.search(value_arg)
+        if match:
+            min_val = int(match.group(1))
+            max_val = int(match.group(2))
+            if min_val >= max_val:
+                raise argparse.ArgumentTypeError(f"--frames {value_arg} : minimum value {min_val} is > or = to "
+                                                 f"maximum value {max_val}")
+            lims.append(min_val)
+            lims.append(max_val)
+        else:
+            raise argparse.ArgumentTypeError(f"--frames {value_arg} is not a valid format, valid format should be: "
+                                             f"--frames <INT>-<INT>")
     else:
-        raise argparse.ArgumentTypeError(f"--frames {value_arg} is not a valid format, valid format should be: "
-                                         f"--frames <INT>-<INT>")
+        lims = None
     return lims
 
 
@@ -259,6 +262,7 @@ def plot_rmsf(src_rmsf, smp, dir_path, fmt, use_dots, subtitle, src_domains=None
     :rtype: str
     """
     if src_domains is not None:
+        # create the domains map and the RMSF plot
         fig, axs = plt.subplots(2, 1, layout="constrained", height_ratios=[10, 1])
         # axes 0
         if use_dots:
@@ -280,11 +284,12 @@ def plot_rmsf(src_rmsf, smp, dir_path, fmt, use_dots, subtitle, src_domains=None
         record = GraphicRecord(sequence_length=row["end"] + 1, features=features, plots_indexing="genbank")
         ax_domains, _ = record.plot(ax=axs[1])
     else:
+        # create the RMSF plot only
         fig, axs = plt.subplots(1, 1, layout="constrained")
         sns.lineplot(data=src_rmsf, x="residues", y="RMSF")
         axs.set_ylabel("RMSF (\u212B)", fontweight="bold")
         axs.set_xlabel("residues", fontweight="bold")
-        axs.set_xlim(0, max(src_rmsf["residues"] + 1))
+        axs.set_xlim(min(src_rmsf["residues"]), max(src_rmsf["residues"] + 1))
         axs.set_title(subtitle)
     fig.suptitle(f"Root Mean Square Fluctuation: {smp.replace('_', ' ')}", fontsize="large", fontweight="bold")
     fig.tight_layout()
@@ -293,7 +298,7 @@ def plot_rmsf(src_rmsf, smp, dir_path, fmt, use_dots, subtitle, src_domains=None
     return out_path_plot
 
 
-def rms(rms_type, traj, out_dir, out_basename, format_output, use_dots_for_rmsf, ns_frame=None, frames_lim=None,
+def rms(rms_type, traj, out_dir, sample_name, format_output, use_dots_for_rmsf, ns_frame=None, frames_lim=None,
         mask=None, atom_from_res=None, domains=None):
     """
     Compute the Root Mean Square Deviation or the Root Mean Square Fluctuation and create the plot.
@@ -304,8 +309,8 @@ def rms(rms_type, traj, out_dir, out_basename, format_output, use_dots_for_rmsf,
     :type traj: pt.Trajectory
     :param out_dir: the output directory path
     :type out_dir: str
-    :param out_basename: the plot and CSV basename.
-    :type out_basename: str
+    :param sample_name: the sample name.
+    :type sample_name: str
     :param format_output: the output format for the plots.
     :type format_output: str
     :param use_dots_for_rmsf: if dots should be used to represent the RMSF value of each residue.
@@ -332,7 +337,7 @@ def rms(rms_type, traj, out_dir, out_basename, format_output, use_dots_for_rmsf,
         range_frames = [x for x in range(traj.n_frames)]
     logging.info(f"{log_txt}:")
 
-    path_csv = f"{os.path.join(out_dir, f'{rms_type}_{out_basename}')}.csv"
+    path_csv = f"{os.path.join(out_dir, f'{rms_type}_{sample_name}')}.csv"
 
     subtitle_plot = None
     if mask:
@@ -349,13 +354,13 @@ def rms(rms_type, traj, out_dir, out_basename, format_output, use_dots_for_rmsf,
         time_rmsd = [x * ns_frame for x in range_frames]
         x_axis_name = "time (ns)"
         source = pd.DataFrame({"frames": range_frames, x_axis_name: time_rmsd, f"{rms_type}": rmsd_traj})
-        plot_path = plot_rmsd(source, out_basename, out_dir, format_output, subtitle_plot)
+        plot_path = plot_rmsd(source, sample_name, out_dir, format_output, subtitle_plot)
     elif rms_type == "RMSF":
         rmsf_traj = pt.rmsf(traj, mask=mask)
         tmp_source = pd.DataFrame({"atoms": rmsf_traj.T[0], f"{rms_type}": rmsf_traj.T[1]})
         source = rmsf_residues(tmp_source, atom_from_res)
         subtitle_plot = f"{subtitle_plot}\nAverage RMSF of the atoms by residues"
-        plot_path = plot_rmsf(source, out_basename, out_dir, format_output, use_dots_for_rmsf, subtitle_plot, domains)
+        plot_path = plot_rmsf(source, sample_name, out_dir, format_output, use_dots_for_rmsf, subtitle_plot, domains)
     else:
         raise ValueError(f"{rms_type} is not a valid case, only \"RMSD\" or \"RMSF\" are allowed.")
     source.to_csv(path_csv, index=False)
@@ -381,6 +386,7 @@ if __name__ == "__main__":
     """
     parser = argparse.ArgumentParser(description=descr, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("-o", "--out", required=True, type=str, help="the path to the output directory.")
+    parser.add_argument("-s", "--sample", required=True, type=str, help="the sample ID used for the files names.")
     parser.add_argument("-t", "--topology", required=True, type=str,
                         help="the path to the molecular dynamics topology file.")
     parser.add_argument("-p", "--ps-by-frame", required=True, type=float,
@@ -390,10 +396,12 @@ if __name__ == "__main__":
                              "by an hyphen, i.e to load the trajectory from the frame 500 to 2000: --frames 500-2000")
     parser.add_argument("-m", "--mask", required=False, type=str, default="", help="the residues mask selection.")
     parser.add_argument("-d", "--domains", required=False, type=str, default="",
-                        help="the path to the CSV domains file. A comma separated file, the first column is the "
-                             "annotation name, the 2nd is the residue start coordinate, the 3rd is the residue end "
-                             "coordinate, the last one is the color to apply in hexadecimal format. The coordinate are "
-                             "1-indexed.")
+                        help="the path to the CSV domains file. The domains file is used in the RMSF plot to display a "
+                             "map of the domains. If the mask do not cover all the domains in the file, the domains "
+                             "argument should not be used. the domains file is a comma separated file, the first "
+                             "column is the annotation name, the 2nd is the residue start coordinate, the 3rd is the "
+                             "residue end coordinate, the last one is the color to apply in hexadecimal format. The "
+                             "coordinate are 1-indexed.")
     parser.add_argument("--dots-for-residues", required=False, action="store_true",
                         help="use dots on the RMSF plot for each residue, useful when a mask is used and not all the "
                              "protein residues are used.")
@@ -452,11 +460,11 @@ if __name__ == "__main__":
     try:
         trajectory = load_trajectories(args.inputs, args.topology, args.ps_by_frame, frames_limits)
     except RuntimeError as exc:
-        logging.error(f"Check if the topology ({args.topology}) and/or the trajectory ({args.input}) files exists",
+        logging.error(f"Check if the topology ({args.topology}) and/or the trajectory ({args.inputs}) files exists",
                       exc_info=True)
         sys.exit(1)
     except ValueError as exc:
-        logging.error(f"Check if the topology ({args.topology}) and/or the trajectory ({args.input}) files exists.",
+        logging.error(f"Check if the topology ({args.topology}) and/or the trajectory ({args.inputs}) files exists.",
                       exc_info=True)
         sys.exit(1)
     except IndexError as exc:
@@ -464,19 +472,18 @@ if __name__ == "__main__":
         sys.exit(1)
 
     # extracting .pdb file from the trajectory
-    basename = os.path.splitext(os.path.basename(args.input))[0]
-    pdb_path = os.path.join(args.out, f"{basename}.pdb")
+    pdb_path = os.path.join(args.out, f"extracted_{args.sample.replace(' ', '_')}.pdb")
     pt.write_traj(pdb_path, traj=trajectory, overwrite=True, frame_indices=[0, 1])
     # load the .pdb file
-    atom_res = extract_pdb(basename, pdb_path)
+    atom_res = extract_pdb(args.sample.replace(" ", "_"), pdb_path)
 
     try:
         # compute RMSD and create the plot
-        rms("RMSD", trajectory, args.out, basename, args.format, args.dots_for_residues, args.ps_by_frame,
-            frames_limits, args.mask)
+        rms("RMSD", trajectory, args.out, args.sample.replace(" ", "_"), args.format, args.dots_for_residues,
+            args.ps_by_frame, frames_limits, args.mask)
         # compute RMSF and create the plot
-        rms("RMSF", trajectory, args.out, basename, args.format, args.dots_for_residues, args.ps_by_frame,
-            frames_limits, args.mask, atom_res, domains_data)
+        rms("RMSF", trajectory, args.out, args.sample.replace(" ", "_"), args.format, args.dots_for_residues,
+            args.ps_by_frame, frames_limits, args.mask, atom_res, domains_data)
     except ValueError as exc:
         logging.error(exc, exc_info=True)
         sys.exit(1)
