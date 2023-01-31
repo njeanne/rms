@@ -7,7 +7,7 @@ Created on 09 Dec. 2022
 __author__ = "Nicolas JEANNE"
 __copyright__ = "GNU General Public License"
 __email__ = "jeanne.n@chu-toulouse.fr"
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 
 import argparse
 import logging
@@ -74,42 +74,38 @@ def create_log(path, level):
     return logging
 
 
-def check_limits(value_arg, type_arg):
+def check_limits(value_arg):
     """Check if the value of the argument is valid.
 
     :param value_arg: the value of the argument to check.
     :type value_arg: str
-    :param type_arg: the argument name.
-    :type type_arg: str
     :raises ArgumentTypeError: values not in the fixed limits
     :return: the frames and region of interest limits
     :rtype: list
-    """  
-    if value_arg:
-        lims = []
-        pattern = re.compile("(\\d+)-(\\d+)")
-        match = pattern.search(value_arg)
-        if match:
-            min_val = int(match.group(1))
-            max_val = int(match.group(2))
-            if min_val >= max_val:
-                raise argparse.ArgumentTypeError(f"--{type_arg} {value_arg} : minimum value {min_val} is > or = to "
-                                                 f"maximum value {max_val}")
-            lims.append(min_val)
-            lims.append(max_val)
-            return lims
-        else:
-            raise argparse.ArgumentTypeError(f"--{type_arg} {value_arg} is not a valid format, valid format should be: "
-                                             f"--{type_arg} <INT>-<INT>")
-    return None
+    """
+    lims = []
+    pattern = re.compile("(\\d+)-(\\d+)")
+    match = pattern.search(value_arg)
+    if match:
+        min_val = int(match.group(1))
+        max_val = int(match.group(2))
+        if min_val >= max_val:
+            raise argparse.ArgumentTypeError(f"--frames {value_arg} : minimum value {min_val} is > or = to "
+                                             f"maximum value {max_val}")
+        lims.append(min_val)
+        lims.append(max_val)
+    else:
+        raise argparse.ArgumentTypeError(f"--frames {value_arg} is not a valid format, valid format should be: "
+                                         f"--frames <INT>-<INT>")
+    return lims
 
 
-def load_trajectory(trajectory_file, topology_file, ps_frame, frames_lim):
+def load_trajectories(trajectory_files, topology_file, ps_frame, frames_lim):
     """
     Load a trajectory and apply a mask if mask argument is set.
 
-    :param trajectory_file: the trajectory file path.
-    :type trajectory_file: str
+    :param trajectory_files: the trajectory file paths.
+    :type trajectory_files: list
     :param topology_file: the topology file path.
     :type topology_file: str
     :param ps_frame: the time a frame represents in picoseconds.
@@ -122,13 +118,10 @@ def load_trajectory(trajectory_file, topology_file, ps_frame, frames_lim):
     """
     logging.info("Loading trajectory file:")
     logging.info("\tComputing the whole trajectory, please be patient..")
-    try:
-        traj = pt.load(trajectory_file, top=topology_file)
-        if frames_lim and frames_lim[1] > traj.n_frames:
-            raise IndexError(f"Selected upper frame limit for RMS computation ({frames_lim[1]}) from --frames argument "
-                             f"is greater than the total frames number ({traj.n_frames}) of the MD trajectory.")
-    except ValueError as ex:
-        raise ex
+    traj = pt.iterload(trajectory_files, top=topology_file)
+    if frames_lim and frames_lim[1] > traj.n_frames:
+        raise IndexError(f"Selected upper frame limit for RMS computation ({frames_lim[1]}) from --frames argument "
+                         f"is greater than the total frames number ({traj.n_frames}) of the MD trajectory.")
     logging.info(f"\tFrames:\t\t{traj.n_frames}")
     logging.info(f"\tMD duration:\t{traj.n_frames * ps_frame} nanoseconds")
     logging.info(f"\tMolecules:\t{traj.topology.n_mols}")
@@ -422,7 +415,8 @@ if __name__ == "__main__":
                         choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
                         help="set the log level. If the option is skipped, log level is INFO.")
     parser.add_argument("--version", action="version", version=__version__)
-    parser.add_argument("input", type=str, help="the path to the molecular dynamics trajectory file (*.nc).")
+    parser.add_argument("inputs", nargs="+", type=str,
+                        help="the paths to the molecular dynamics trajectory files (*.nc).")
     args = parser.parse_args()
 
     # create output directory if necessary
@@ -437,7 +431,7 @@ if __name__ == "__main__":
     logging.info(f"version: {__version__}")
     logging.info(f"CMD: {' '.join(sys.argv)}")
     try:
-        frames_limits = check_limits(args.frames, "frames")
+        frames_limits = check_limits(args.frames)
     except argparse.ArgumentTypeError as exc:
         logging.error(exc)
         sys.exit(1)
@@ -456,7 +450,7 @@ if __name__ == "__main__":
 
     # load the trajectory
     try:
-        trajectory = load_trajectory(args.input, args.topology, args.ps_by_frame, frames_limits)
+        trajectory = load_trajectories(args.inputs, args.topology, args.ps_by_frame, frames_limits)
     except RuntimeError as exc:
         logging.error(f"Check if the topology ({args.topology}) and/or the trajectory ({args.input}) files exists",
                       exc_info=True)
