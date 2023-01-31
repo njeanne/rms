@@ -390,10 +390,12 @@ if __name__ == "__main__":
                              "by an hyphen, i.e to load the trajectory from the frame 500 to 2000: --frames 500-2000")
     parser.add_argument("-m", "--mask", required=False, type=str, default="", help="the residues mask selection.")
     parser.add_argument("-d", "--domains", required=False, type=str, default="",
-                        help="the path to the CSV domains file. A comma separated file, the first column is the "
-                             "annotation name, the 2nd is the residue start coordinate, the 3rd is the residue end "
-                             "coordinate, the last one is the color to apply in hexadecimal format. The coordinate are "
-                             "1-indexed.")
+                        help="the path to the CSV domains file. The domains file is used in the RMSF plot to display a "
+                             "map of the domains. If the mask do not cover all the domains in the file, the domains "
+                             "argument should not be used. the domains file is a comma separated file, the first "
+                             "column is the annotation name, the 2nd is the residue start coordinate, the 3rd is the "
+                             "residue end coordinate, the last one is the color to apply in hexadecimal format. The "
+                             "coordinate are 1-indexed.")
     parser.add_argument("--dots-for-residues", required=False, action="store_true",
                         help="use dots on the RMSF plot for each residue, useful when a mask is used and not all the "
                              "protein residues are used.")
