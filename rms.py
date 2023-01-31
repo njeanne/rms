@@ -7,7 +7,7 @@ Created on 09 Dec. 2022
 __author__ = "Nicolas JEANNE"
 __copyright__ = "GNU General Public License"
 __email__ = "jeanne.n@chu-toulouse.fr"
-__version__ = "1.3.0"
+__version__ = "1.2.0"
 
 import argparse
 import logging
@@ -103,7 +103,7 @@ def check_limits(value_arg):
     return lims
 
 
-def load_trajectories(trajectory_files, topology_file, ps_frame, frames_lim):
+def load_trajectories(trajectory_files, topology_file, sim_duration, frames_lim):
     """
     Load a trajectory and apply a mask if mask argument is set.
 
@@ -111,8 +111,8 @@ def load_trajectories(trajectory_files, topology_file, ps_frame, frames_lim):
     :type trajectory_files: list
     :param topology_file: the topology file path.
     :type topology_file: str
-    :param ps_frame: the time a frame represents in picoseconds.
-    :type ps_frame: float
+    :param sim_duration: the molecular dynamics duration as a free text.
+    :type sim_duration: str
     :param frames_lim: the frames limits to use for RMSD and RMSF, used to check if this upper limit is not greater
     than the number of frames of the simulation.
     :type frames_lim: list or None
@@ -126,7 +126,7 @@ def load_trajectories(trajectory_files, topology_file, ps_frame, frames_lim):
         raise IndexError(f"Selected upper frame limit for RMS computation ({frames_lim[1]}) from --frames argument "
                          f"is greater than the total frames number ({traj.n_frames}) of the MD trajectory.")
     logging.info(f"\tFrames:\t\t{traj.n_frames}")
-    logging.info(f"\tMD duration:\t{traj.n_frames * ps_frame} nanoseconds")
+    logging.info(f"\tMD duration:\t{sim_duration}")
     logging.info(f"\tMolecules:\t{traj.topology.n_mols}")
     logging.info(f"\tResidues:\t{traj.topology.n_residues}")
     logging.info(f"\tAtoms:\t\t{traj.topology.n_atoms}")
@@ -298,7 +298,7 @@ def plot_rmsf(src_rmsf, smp, dir_path, fmt, use_dots, subtitle, src_domains=None
     return out_path_plot
 
 
-def rms(rms_type, traj, out_dir, sample_name, format_output, use_dots_for_rmsf, ns_frame=None, frames_lim=None,
+def rms(rms_type, traj, out_dir, sample_name, format_output, use_dots_for_rmsf, sim_duration=None, frames_lim=None,
         mask=None, atom_from_res=None, domains=None):
     """
     Compute the Root Mean Square Deviation or the Root Mean Square Fluctuation and create the plot.
@@ -315,8 +315,8 @@ def rms(rms_type, traj, out_dir, sample_name, format_output, use_dots_for_rmsf, 
     :type format_output: str
     :param use_dots_for_rmsf: if dots should be used to represent the RMSF value of each residue.
     :type use_dots_for_rmsf: bool
-    :param ns_frame: the time a frame represents in nanoseconds.
-    :type ns_frame: float
+    :param sim_duration: the molecular dynamics duration as free text.
+    :type sim_duration: str
     :param frames_lim: the frames limits.
     :type frames_lim: list
     :param mask: the applied mask.
@@ -329,13 +329,13 @@ def rms(rms_type, traj, out_dir, sample_name, format_output, use_dots_for_rmsf, 
     """
     log_txt = f"{rms_type} computation"
     if mask:
-        log_txt = f"{log_txt}, with Mask {mask}"
+        log_txt = f"{log_txt}, with Mask \"{mask}\""
     if frames_lim:
         range_frames = [x for x in range(frames_lim[0], frames_lim[1])]
-        log_txt = f"{log_txt}, using frames {frames_lim[0]} to {frames_lim[1]} and frame 0 as reference."
+        log_txt = f"{log_txt}, selected frames {frames_lim[0]} to {frames_lim[1]}"
     else:
         range_frames = [x for x in range(traj.n_frames)]
-    logging.info(f"{log_txt}:")
+    logging.info(f"{log_txt}, with frame 0 as reference:")
 
     path_csv = f"{os.path.join(out_dir, f'{rms_type}_{sample_name}')}.csv"
 
@@ -351,9 +351,7 @@ def rms(rms_type, traj, out_dir, sample_name, format_output, use_dots_for_rmsf, 
 
     if rms_type == "RMSD":
         rmsd_traj = pt.rmsd(traj, mask=mask, ref=0, frame_indices=range_frames)
-        time_rmsd = [x * ns_frame for x in range_frames]
-        x_axis_name = "time (ns)"
-        source = pd.DataFrame({"frames": range_frames, x_axis_name: time_rmsd, f"{rms_type}": rmsd_traj})
+        source = pd.DataFrame({"frames": range_frames, f"{rms_type}": rmsd_traj})
         plot_path = plot_rmsd(source, sample_name, out_dir, format_output, subtitle_plot)
     elif rms_type == "RMSF":
         rmsf_traj = pt.rmsf(traj, mask=mask)
@@ -389,9 +387,9 @@ if __name__ == "__main__":
     parser.add_argument("-s", "--sample", required=True, type=str, help="the sample ID used for the files names.")
     parser.add_argument("-t", "--topology", required=True, type=str,
                         help="the path to the molecular dynamics topology file.")
-    parser.add_argument("-p", "--ps-by-frame", required=True, type=float,
-                        help="the elapsed time in picoseconds for each frame as set in the MD configuration file.")
-    parser.add_argument("-x", "--frames", required=False, type=str,
+    parser.add_argument("--md-time", required=False, type=str,
+                        help="the molecular dynamics simulation time as free text.")
+    parser.add_argument("-f", "--frames", required=False, type=str,
                         help="the frames to use for the RMSD and the RMSF, the format must be two integers separated "
                              "by an hyphen, i.e to load the trajectory from the frame 500 to 2000: --frames 500-2000")
     parser.add_argument("-m", "--mask", required=False, type=str, default="", help="the residues mask selection.")
@@ -405,7 +403,7 @@ if __name__ == "__main__":
     parser.add_argument("--dots-for-residues", required=False, action="store_true",
                         help="use dots on the RMSF plot for each residue, useful when a mask is used and not all the "
                              "protein residues are used.")
-    parser.add_argument("-f", "--format", required=False, default="svg",
+    parser.add_argument("-x", "--format", required=False, default="svg",
                         choices=["eps", "jpg", "jpeg", "pdf", "pgf", "png", "ps", "raw", "svg", "svgz", "tif", "tiff"],
                         help="the output plots format: 'eps': 'Encapsulated Postscript', "
                              "'jpg': 'Joint Photographic Experts Group', 'jpeg': 'Joint Photographic Experts Group', "
@@ -458,7 +456,7 @@ if __name__ == "__main__":
 
     # load the trajectory
     try:
-        trajectory = load_trajectories(args.inputs, args.topology, args.ps_by_frame, frames_limits)
+        trajectory = load_trajectories(args.inputs, args.topology, args.md_time, frames_limits)
     except RuntimeError as exc:
         logging.error(f"Check if the topology ({args.topology}) and/or the trajectory ({args.inputs}) files exists",
                       exc_info=True)
@@ -480,10 +478,10 @@ if __name__ == "__main__":
     try:
         # compute RMSD and create the plot
         rms("RMSD", trajectory, args.out, args.sample.replace(" ", "_"), args.format, args.dots_for_residues,
-            args.ps_by_frame, frames_limits, args.mask)
+            args.md_time, frames_limits, args.mask)
         # compute RMSF and create the plot
         rms("RMSF", trajectory, args.out, args.sample.replace(" ", "_"), args.format, args.dots_for_residues,
-            args.ps_by_frame, frames_limits, args.mask, atom_res, domains_data)
+            args.md_time, frames_limits, args.mask, atom_res, domains_data)
     except ValueError as exc:
         logging.error(exc, exc_info=True)
         sys.exit(1)

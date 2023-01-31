@@ -24,12 +24,17 @@ The usage of the script after activating the conda environment can be displayed 
 
 The analysis can be run with the following command on the test data provided in the repository (`data_for_dev` directory):
 ```shell script
-./rms.py --out results --ps-by-frame 0.002 --mask @CA,C,O,N --format svg --remove-pdb --topology data/MD_data_test.parm data/MD_data_test.nc
+./rms.py --out results --sample "traj test" --md-time "2 ns" --mask @CA,C,O,N --format svg --remove-pdb \
+--topology data/MD_data_test.parm data/MD_data_test.nc
 ```
-The `--ps-by-frame` argument is the time elapsed at each frame of the molecular dynamics simulation.
-The `--mask` argument is the mask to apply on the residues to compute the RMSs as described in [AMBER documentation](https://amber-md.github.io/pytraj/latest/atom_mask_selection.html#examples-atom-mask-selection-for-trajectory).
 
-If you want to add the domains annotation of the protein, you can use the `--domains` argument which value is the path to a comma separated file with the domains coordinates as the one provided in `data/MD_data_test_domains.csv`.
+The optional arguments are:
+- `--md-time` argument is the time elapsed at each frame of the molecular dynamics simulation.
+- `--mask` argument is the mask to apply on the residues to compute the RMSs as described in [AMBER documentation](https://amber-md.github.io/pytraj/latest/atom_mask_selection.html#examples-atom-mask-selection-for-trajectory).
+
+If you want to add the domains annotation of the protein, you can use the `--domains` argument which value is the path 
+to a comma separated file with the domains coordinates as the one provided in `data/MD_data_test_domains.csv`. This
+argument should not be used if you specify a residue selection in the mask as: `:25-57@CA,C,O,N`.
 
 ## Results
 
