@@ -4,11 +4,11 @@ Compute the [Root Mean Square Deviation](https://amberhub.chpc.utah.edu/amber-hu
 
 ## Conda environment
 
-A [conda](https://docs.conda.io/projects/conda/en/latest/index.html) YAML environment file is provided: `rms_env.yml`. The file contains all the dependencies to run the script.
+A [conda](https://docs.conda.io/projects/conda/en/latest/index.html) YAML environment file is provided: `conda_env/rms_env.yml`. The file contains all the dependencies to run the script.
 The conda environment is created using the command:
 ```shell script
 # create the environment
-conda env create -f rms_env.yml
+conda env create -f conda_env/rms_env.yml
 
 # activate the environment
 conda activate rms
