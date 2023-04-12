@@ -14,40 +14,59 @@ conda env create -f conda_env/rms_env.yml
 conda activate rms
 ```
 
-## Commands
-
 The usage of the script after activating the conda environment can be displayed with:
 
 ```shell script
 ./rms.py -h
 ```
 
+The outputs are:
+- a RMSD plot
+- a RMSD data coordinates CSV file
+- a RMSF plot
+- a RMSF data coordinates CSV file
+
+## RMSD and RMSF without the protein domains
+
 The analysis can be run with the following command on the test data provided in the repository (`data_for_dev` directory):
 ```shell script
-./rms.py --out results --sample "traj test" --md-time "2 ns" --mask @CA,C,O,N --format svg --remove-pdb \
---topology data/MD_data_test.parm data/MD_data_test.nc
+./rms.py --out results/MD_data_test --sample "MD data test" --info "Simulation time: 2 ns" --mask @CA,C,O,N \
+--format svg --remove-pdb --topology data/MD_data_test.parm data/MD_data_test.nc
 ```
 
 The optional arguments are:
 - `--md-time` argument is the time elapsed at each frame of the molecular dynamics simulation.
 - `--mask` argument is the mask to apply on the residues to compute the RMSs as described in [AMBER documentation](https://amber-md.github.io/pytraj/latest/atom_mask_selection.html#examples-atom-mask-selection-for-trajectory).
 
+The script produces the RMSD plot:
+
+![RMSD plot](doc/_static/RMSD.svg)
+
+and the RMSF plot:
+
+![RMSF plot](doc/_static/RMSF_without_domains.svg)
+
+## RMSD and RMSF with the protein domains
+
 If you want to add the domains annotation of the protein, you can use the `--domains` argument which value is the path 
 to a comma separated file with the domains coordinates as the one provided in `data/MD_data_test_domains.csv`. This
 argument should not be used if you specify a residue selection in the mask as: `:25-57@CA,C,O,N`.
 
-## Results
+The command:
+```shell script
+./rms.py --out results/MD_data_test --sample "MD data test" --info "Simulation time: 2 ns" --mask @CA,C,O,N \
+--format svg --remove-pdb --domains data/MD_data_test_domains.csv --topology data/MD_data_test.parm data/MD_data_test.nc
+```
 
-The script produces a RMSD plot:
+Produces the previous RMSD plot and the RMSF plot with the domains:
+![RMSF plot with domains](doc/_static/RMSF_with_domains.svg)
 
-![RMSD plot](doc/_static/RMSD.svg)
+## RMSD and RMSF with a mask selecting residues of a domain
 
-the RMSF plot **without** the `--domains` option:
+Plotting only the `domain 2` coordinates of the CSV domains (residue 29 to 54) file with `--mask` argument. In that case 
+the `--domains` argument **should not be used**.
+```shell script
+./rms.py --out results/MD_data_test --sample "MD data test" --info "Simulation time: 2 ns" --mask :29-54@CA,C,O,N \
+--format svg --remove-pdb --topology data/MD_data_test.parm data/MD_data_test.nc
+```
 
-![RMSF plot](doc/_static/RMSF_without_domains.svg)
-
-or the RMSF plot **with** the `--domains` option:
-
-![RMSF plot](doc/_static/RMSF_with_domains.svg)
-
-and the associated CSV files.

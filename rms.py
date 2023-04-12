@@ -103,7 +103,7 @@ def check_limits(value_arg):
     return lims
 
 
-def load_trajectories(trajectory_files, topology_file, sim_duration, frames_lim):
+def load_trajectories(trajectory_files, topology_file, info, frames_lim):
     """
     Load a trajectory and apply a mask if mask argument is set.
 
@@ -111,8 +111,8 @@ def load_trajectories(trajectory_files, topology_file, sim_duration, frames_lim)
     :type trajectory_files: list
     :param topology_file: the topology file path.
     :type topology_file: str
-    :param sim_duration: the molecular dynamics duration as a free text.
-    :type sim_duration: str
+    :param info: the molecular dynamics information as free text.
+    :type info: str
     :param frames_lim: the frames limits to use for RMSD and RMSF, used to check if this upper limit is not greater
     than the number of frames of the simulation.
     :type frames_lim: list or None
@@ -126,7 +126,7 @@ def load_trajectories(trajectory_files, topology_file, sim_duration, frames_lim)
         raise IndexError(f"Selected upper frame limit for RMS computation ({frames_lim[1]}) from --frames argument "
                          f"is greater than the total frames number ({traj.n_frames}) of the MD trajectory.")
     logging.info(f"\tFrames:\t\t{traj.n_frames}")
-    logging.info(f"\tMD duration:\t{sim_duration}")
+    logging.info(f"\tInformation:\t{info}")
     logging.info(f"\tMolecules:\t{traj.topology.n_mols}")
     logging.info(f"\tResidues:\t{traj.topology.n_residues}")
     logging.info(f"\tAtoms:\t\t{traj.topology.n_atoms}")
@@ -235,7 +235,8 @@ def plot_rmsd(src, smp, dir_path, fmt, subtitle):
     plt.title(subtitle)
     plt.xlabel("frames", fontweight="bold")
     plt.ylabel("RMSD (\u212B)", fontweight="bold")
-    out_path_plot = os.path.join(dir_path, f"RMSD_{smp}.{fmt}")
+    out_path_plot = os.path.join(dir_path, f"RMSD_{smp}")
+    out_path_plot = f"{out_path_plot}.{fmt}"
     plot.savefig(out_path_plot)
     return out_path_plot
 
@@ -298,7 +299,7 @@ def plot_rmsf(src_rmsf, smp, dir_path, fmt, use_dots, subtitle, src_domains=None
     return out_path_plot
 
 
-def rms(rms_type, traj, out_dir, sample_name, format_output, use_dots_for_rmsf, sim_duration=None, frames_lim=None,
+def rms(rms_type, traj, out_dir, sample_name, format_output, use_dots_for_rmsf, info=None, frames_lim=None,
         mask=None, atom_from_res=None, domains=None):
     """
     Compute the Root Mean Square Deviation or the Root Mean Square Fluctuation and create the plot.
@@ -315,8 +316,8 @@ def rms(rms_type, traj, out_dir, sample_name, format_output, use_dots_for_rmsf, 
     :type format_output: str
     :param use_dots_for_rmsf: if dots should be used to represent the RMSF value of each residue.
     :type use_dots_for_rmsf: bool
-    :param sim_duration: the molecular dynamics duration as free text.
-    :type sim_duration: str
+    :param info: the molecular dynamics information as free text.
+    :type info: str
     :param frames_lim: the frames limits.
     :type frames_lim: list
     :param mask: the applied mask.
@@ -343,11 +344,10 @@ def rms(rms_type, traj, out_dir, sample_name, format_output, use_dots_for_rmsf, 
     if mask:
         subtitle_plot = f"Applied mask: {mask}"
     if frames_lim:
-        sep = ""
-        if subtitle_plot:
-            sep = "   "
-        subtitle_plot = f"{subtitle_plot}{sep}Frames used: {frames_lim[0]}-{frames_lim[1]} on {trajectory.n_frames} " \
-                        f"frames"
+        subtitle_plot = f"{subtitle_plot}{'  ' if subtitle_plot else ''}Frames used: {frames_lim[0]}-{frames_lim[1]} " \
+                        f"on {trajectory.n_frames} frames"
+    if info:
+        subtitle_plot = f"{subtitle_plot}{'  ' if subtitle_plot else ''}{info}"
 
     if rms_type == "RMSD":
         rmsd_traj = pt.rmsd(traj, mask=mask, ref=0, frame_indices=range_frames)
@@ -358,7 +358,8 @@ def rms(rms_type, traj, out_dir, sample_name, format_output, use_dots_for_rmsf, 
         tmp_source = pd.DataFrame({"atoms": rmsf_traj.T[0], f"{rms_type}": rmsf_traj.T[1]})
         source = rmsf_residues(tmp_source, atom_from_res)
         subtitle_plot = f"{subtitle_plot}\nAverage RMSF of the atoms by residues"
-        plot_path = plot_rmsf(source, sample_name, out_dir, format_output, use_dots_for_rmsf, subtitle_plot, domains)
+        plot_path = plot_rmsf(source, sample_name, out_dir, format_output, use_dots_for_rmsf, subtitle_plot,
+                              src_domains=domains)
     else:
         raise ValueError(f"{rms_type} is not a valid case, only \"RMSD\" or \"RMSF\" are allowed.")
     source.to_csv(path_csv, index=False)
@@ -387,12 +388,12 @@ if __name__ == "__main__":
     parser.add_argument("-s", "--sample", required=True, type=str, help="the sample ID used for the files names.")
     parser.add_argument("-t", "--topology", required=True, type=str,
                         help="the path to the molecular dynamics topology file.")
-    parser.add_argument("--md-time", required=False, type=str,
-                        help="the molecular dynamics simulation time as free text.")
+    parser.add_argument("-i", "--info", required=False, type=str,
+                        help="the molecular dynamics simulation complementary information, as the MD simulation time."
+                             "Set as free text which will be added to the subtitle of the plots.")
     parser.add_argument("-f", "--frames", required=False, type=str,
                         help="the frames to use for the RMSD and the RMSF, the format must be two integers separated "
                              "by an hyphen, i.e to load the trajectory from the frame 500 to 2000: --frames 500-2000")
-    parser.add_argument("-m", "--mask", required=False, type=str, default="", help="the residues mask selection.")
     parser.add_argument("-d", "--domains", required=False, type=str, default="",
                         help="the path to the CSV domains file. The domains file is used in the RMSF plot to display a "
                              "map of the domains. If the mask do not cover all the domains in the file, the domains "
@@ -400,6 +401,9 @@ if __name__ == "__main__":
                              "column is the annotation name, the 2nd is the residue start coordinate, the 3rd is the "
                              "residue end coordinate, the last one is the color to apply in hexadecimal format. The "
                              "coordinate are 1-indexed.")
+    parser.add_argument("-m", "--mask", required=False, type=str, default="",
+                        help="the residues mask selection. To select a region in the domains CSV file, you can use a "
+                             "mask specifying the domain's residues positions, i.e: ':60-238@CA,C,O,N'.")
     parser.add_argument("--dots-for-residues", required=False, action="store_true",
                         help="use dots on the RMSF plot for each residue, useful when a mask is used and not all the "
                              "protein residues are used.")
@@ -456,7 +460,7 @@ if __name__ == "__main__":
 
     # load the trajectory
     try:
-        trajectory = load_trajectories(args.inputs, args.topology, args.md_time, frames_limits)
+        trajectory = load_trajectories(args.inputs, args.topology, args.info, frames_limits)
     except RuntimeError as exc:
         logging.error(f"Check if the topology ({args.topology}) and/or the trajectory ({args.inputs}) files exists",
                       exc_info=True)
@@ -478,10 +482,10 @@ if __name__ == "__main__":
     try:
         # compute RMSD and create the plot
         rms("RMSD", trajectory, args.out, args.sample.replace(" ", "_"), args.format, args.dots_for_residues,
-            args.md_time, frames_limits, args.mask)
+            args.info, frames_limits, args.mask)
         # compute RMSF and create the plot
         rms("RMSF", trajectory, args.out, args.sample.replace(" ", "_"), args.format, args.dots_for_residues,
-            args.md_time, frames_limits, args.mask, atom_res, domains_data)
+            args.info, frames_limits, args.mask, atom_res, domains_data)
     except ValueError as exc:
         logging.error(exc, exc_info=True)
         sys.exit(1)
