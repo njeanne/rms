@@ -73,6 +73,6 @@ the `--domains` argument **should not be used**.
 data/MD_data_test.nc
 ```
 
-Plot only the selected domain 2:
+Plot only the selected domain 2 for the RMSD and the RMSF:
 ![RMSD plot domain 2](doc/_static/RMSD_domain2.svg)
 ![RMSF plot domain 2](doc/_static/RMSF_domain2.svg)
