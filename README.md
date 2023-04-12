@@ -30,8 +30,9 @@ The outputs are:
 
 The analysis can be run with the following command on the test data provided in the repository (`data_for_dev` directory):
 ```shell script
-./rms.py --out results/MD_data_test --sample "MD data test" --info "Simulation time: 2 ns" --mask @CA,C,O,N \
---format svg --remove-pdb --topology data/MD_data_test.parm data/MD_data_test.nc
+./rms.py --out results/MD_data_test --sample "MD data test" --info "Simulation time: 2 ns" \
+--mask @CA,C,O,N --format svg --remove-pdb --topology data/MD_data_test.parm \
+data/MD_data_test.nc
 ```
 
 The optional arguments are:
@@ -54,8 +55,9 @@ argument should not be used if you specify a residue selection in the mask as: `
 
 The command:
 ```shell script
-./rms.py --out results/MD_data_test --sample "MD data test" --info "Simulation time: 2 ns" --mask @CA,C,O,N \
---format svg --remove-pdb --domains data/MD_data_test_domains.csv --topology data/MD_data_test.parm data/MD_data_test.nc
+./rms.py --out results/MD_data_test --sample "MD data test" --info "Simulation time: 2 ns" \
+--mask @CA,C,O,N --format svg --remove-pdb --domains data/MD_data_test_domains.csv \
+--topology data/MD_data_test.parm data/MD_data_test.nc
 ```
 
 Produces the previous RMSD plot and the RMSF plot with the domains:
@@ -66,7 +68,8 @@ Produces the previous RMSD plot and the RMSF plot with the domains:
 Plotting only the `domain 2` coordinates of the CSV domains (residue 29 to 54) file with `--mask` argument. In that case 
 the `--domains` argument **should not be used**.
 ```shell script
-./rms.py --out results/MD_data_test --sample "MD data test" --info "Simulation time: 2 ns" --mask :29-54@CA,C,O,N \
---format svg --remove-pdb --topology data/MD_data_test.parm data/MD_data_test.nc
+./rms.py --out results/MD_data_test --sample "MD data test" --info "Simulation time: 2 ns" \
+--mask :29-54@CA,C,O,N --format svg --remove-pdb --topology data/MD_data_test.parm \
+data/MD_data_test.nc
 ```
 
