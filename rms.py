@@ -343,11 +343,10 @@ def rms(rms_type, traj, out_dir, sample_name, format_output, use_dots_for_rmsf, 
     if mask:
         subtitle_plot = f"Applied mask: {mask}"
     if frames_lim:
-        sep = ""
-        if subtitle_plot:
-            sep = "   "
-        subtitle_plot = f"{subtitle_plot}{sep}Frames used: {frames_lim[0]}-{frames_lim[1]} on {trajectory.n_frames} " \
-                        f"frames"
+        subtitle_plot = f"{subtitle_plot}{'  ' if subtitle_plot else ''}Frames used: {frames_lim[0]}-{frames_lim[1]} " \
+                        f"on {trajectory.n_frames} frames"
+    if sim_duration:
+        subtitle_plot = f"{subtitle_plot}{'  ' if subtitle_plot else ''}Simulation time: {sim_duration}"
 
     if rms_type == "RMSD":
         rmsd_traj = pt.rmsd(traj, mask=mask, ref=0, frame_indices=range_frames)
