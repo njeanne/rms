@@ -7,7 +7,7 @@ Created on 09 Dec. 2022
 __author__ = "Nicolas JEANNE"
 __copyright__ = "GNU General Public License"
 __email__ = "jeanne.n@chu-toulouse.fr"
-__version__ = "1.2.0"
+__version__ = "1.3.0"
 
 import argparse
 import logging
@@ -212,9 +212,9 @@ def rmsf_residues(tmp, data):
     return pd.DataFrame.from_dict(residue_rmsf)
 
 
-def plot_rmsd(src, smp, dir_path, fmt, subtitle):
+def plot_rmsd_line(src, smp, dir_path, fmt, subtitle):
     """
-    Plot the RMSD.
+    Create the RMSD line plot.
 
     :param src: the data source.
     :type src: pd.Dataframe
@@ -229,8 +229,8 @@ def plot_rmsd(src, smp, dir_path, fmt, subtitle):
     :return: the path of the plot.
     :rtype: str
     """
-    rms_ax = sns.lineplot(data=src, x="frames", y="RMSD")
-    plot = rms_ax.get_figure()
+    rms_line_ax = sns.lineplot(data=src, x="frames", y="RMSD")
+    plot = rms_line_ax.get_figure()
     plt.suptitle(f"Root Mean Square Deviation: {smp.replace('_', ' ')}", fontsize="large", fontweight="bold")
     plt.title(subtitle)
     plt.xlabel("frames", fontweight="bold")
@@ -238,6 +238,38 @@ def plot_rmsd(src, smp, dir_path, fmt, subtitle):
     out_path_plot = os.path.join(dir_path, f"RMSD_{smp}")
     out_path_plot = f"{out_path_plot}.{fmt}"
     plot.savefig(out_path_plot)
+    return out_path_plot
+
+
+def plot_rmsd_histogram(src, smp, dir_path, fmt, subtitle):
+    """
+    Create the RMSD histogram.
+
+    :param src: the data source.
+    :type src: pd.Dataframe
+    :param smp: the sample name.
+    :type smp: str
+    :param dir_path: the output directory path.
+    :type dir_path: str
+    :param fmt: the plot output format.
+    :type fmt: str
+    :param subtitle: the plot subtitle.
+    :type subtitle: str
+    :return: the path of the plot.
+    :rtype: str
+    """
+    # clear the previous RMSD line plot
+    plt.clf()
+    # create the histogram
+    rms_histogram_ax = sns.histplot(data=src, x="RMSD", stat="density", kde=True)
+    histogram = rms_histogram_ax.get_figure()
+    plt.suptitle(f"Root Mean Square Deviation histogram: {smp.replace('_', ' ')}", fontsize="large", fontweight="bold")
+    plt.title(subtitle)
+    plt.xlabel("RMSD (\u212B)", fontweight="bold")
+    plt.ylabel("Density", fontweight="bold")
+    out_path_plot = os.path.join(dir_path, f"RMSD_histogram_{smp}")
+    out_path_plot = f"{out_path_plot}.{fmt}"
+    histogram.savefig(out_path_plot)
     return out_path_plot
 
 
@@ -352,19 +384,21 @@ def rms(rms_type, traj, out_dir, sample_name, format_output, use_dots_for_rmsf, 
     if rms_type == "RMSD":
         rmsd_traj = pt.rmsd(traj, mask=mask, ref=0, frame_indices=range_frames)
         source = pd.DataFrame({"frames": range_frames, f"{rms_type}": rmsd_traj})
-        plot_path = plot_rmsd(source, sample_name, out_dir, format_output, subtitle_plot)
+        plot_line_path = plot_rmsd_line(source, sample_name, out_dir, format_output, subtitle_plot)
+        plot_histogram_path = plot_rmsd_histogram(source, sample_name, out_dir, format_output, subtitle_plot)
+        plot_path = [plot_line_path, plot_histogram_path]
     elif rms_type == "RMSF":
         rmsf_traj = pt.rmsf(traj, mask=mask)
         tmp_source = pd.DataFrame({"atoms": rmsf_traj.T[0], f"{rms_type}": rmsf_traj.T[1]})
         source = rmsf_residues(tmp_source, atom_from_res)
         subtitle_plot = f"{subtitle_plot}\nAverage RMSF of the atoms by residues"
-        plot_path = plot_rmsf(source, sample_name, out_dir, format_output, use_dots_for_rmsf, subtitle_plot,
-                              src_domains=domains)
+        plot_path = [plot_rmsf(source, sample_name, out_dir, format_output, use_dots_for_rmsf, subtitle_plot,
+                               src_domains=domains)]
     else:
         raise ValueError(f"{rms_type} is not a valid case, only \"RMSD\" or \"RMSF\" are allowed.")
     source.to_csv(path_csv, index=False)
     logging.info(f"\tdata saved: {path_csv}")
-    logging.info(f"\tplot {rms_type} saved: {plot_path}")
+    logging.info(f"\t{rms_type} plot{'s' if rms_type == 'RMSD' else ''} saved: {', '.join(plot_path)}")
 
 
 if __name__ == "__main__":
