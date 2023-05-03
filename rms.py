@@ -62,7 +62,7 @@ def create_log(path, level):
     if level is None:
         log_level = log_level_dict["INFO"]
     else:
-        log_level = log_level_dict[args.log_level]
+        log_level = log_level_dict[level]
 
     if os.path.exists(path):
         os.remove(path)
