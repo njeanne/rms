@@ -388,7 +388,10 @@ def rms(rms_type, traj, out_dir, sample_name, format_output, use_dots_for_rmsf, 
         plot_histogram_path = plot_rmsd_histogram(source, sample_name, out_dir, format_output, subtitle_plot)
         plot_path = [plot_line_path, plot_histogram_path]
     elif rms_type == "RMSF":
-        rmsf_traj = pt.rmsf(traj, mask=mask)
+        # todo: voir utilisation de l'option byres qui ne produit que 120 résidus au lieu de ~ 1700
+        # use "byres" option to compute the RMSF by residue,
+        # see https://amber-md.github.io/cpptraj/CPPTRAJ.xhtml#magicparlabel-5029
+        rmsf_traj = pt.rmsf(traj, mask=mask, options="byres")
         tmp_source = pd.DataFrame({"atoms": rmsf_traj.T[0], f"{rms_type}": rmsf_traj.T[1]})
         source = rmsf_residues(tmp_source, atom_from_res)
         subtitle_plot = f"{subtitle_plot}\nAverage RMSF of the atoms by residues"
