@@ -20,6 +20,7 @@ import Bio.PDB
 from dna_features_viewer import GraphicFeature, GraphicRecord
 import matplotlib
 matplotlib.use('Agg')
+import numpy
 import pandas as pd
 import pytraj as pt
 import matplotlib.pyplot as plt
@@ -167,6 +168,18 @@ def extract_pdb(pdb_id, path):
         raise ex
 
     return data
+
+
+def get_reference_cluster(traj, mask):
+    """"""
+    logging.info("Computing the trajectory clustering:")
+    clusters_data = pt.cluster.kmeans(traj, mask=mask)
+    numpy.set_printoptions(threshold=sys.maxsize)
+    logging.info(f"\t {len(clusters_data.cluster_index)} clusters index: {clusters_data.cluster_index}")
+    logging.info(f"\t {len(clusters_data.centroids)} clusters found: {clusters_data.centroids}")
+    for centroid in clusters_data.centroids:
+        print(f"\tcentroid {centroid }: {numpy.count_nonzero(clusters_data.cluster_index == centroid )}")
+    sys.exit()
 
 
 def rmsf_residues(tmp, data):
@@ -388,10 +401,10 @@ def rms(rms_type, traj, out_dir, sample_name, format_output, use_dots_for_rmsf, 
         plot_histogram_path = plot_rmsd_histogram(source, sample_name, out_dir, format_output, subtitle_plot)
         plot_path = [plot_line_path, plot_histogram_path]
     elif rms_type == "RMSF":
-        # todo: voir utilisation de l'option byres qui ne produit que 120 résidus au lieu de ~ 1700
-        # use "byres" option to compute the RMSF by residue,
-        # see https://amber-md.github.io/cpptraj/CPPTRAJ.xhtml#magicparlabel-5029
-        rmsf_traj = pt.rmsf(traj, mask=mask, options="byres")
+        # todo: vérifier la validité de la méthode superpose
+        # superpose on the last frame of the trajectory
+        traj_superpose = traj.superpose(ref=-1, mask=mask)
+        rmsf_traj = pt.rmsf(traj_superpose, mask=mask)
         tmp_source = pd.DataFrame({"atoms": rmsf_traj.T[0], f"{rms_type}": rmsf_traj.T[1]})
         source = rmsf_residues(tmp_source, atom_from_res)
         subtitle_plot = f"{subtitle_plot}\nAverage RMSF of the atoms by residues"
@@ -509,6 +522,9 @@ if __name__ == "__main__":
     except IndexError as exc:
         logging.error(exc, exc_info=True)
         sys.exit(1)
+
+    # get the most representative cluster
+    get_reference_cluster(trajectory, args.mask)
 
     # extracting .pdb file from the trajectory
     pdb_path = os.path.join(args.out, f"extracted_{args.sample.replace(' ', '_')}.pdb")
