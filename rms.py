@@ -75,11 +75,13 @@ def create_log(path, level):
     return logging
 
 
-def check_limits(value_arg):
+def check_limits(value_arg, ref_frame_arg):
     """Check if the value of the argument is valid.
 
     :param value_arg: the value of the argument to check.
     :type value_arg: str
+    :param ref_frame_arg: the reference frame to use for the RMSD and RMSF computations.
+    :type ref_frame_arg: int
     :raises ArgumentTypeError: values not in the fixed limits
     :return: the frames and region of interest limits
     :rtype: list
@@ -94,6 +96,9 @@ def check_limits(value_arg):
             if min_val >= max_val:
                 raise argparse.ArgumentTypeError(f"--frames {value_arg} : minimum value {min_val} is > or = to "
                                                  f"maximum value {max_val}")
+            elif not min_val <= ref_frame_arg <= max_val:
+                raise argparse.ArgumentTypeError(f"--ref-frame {ref_frame_arg} : the reference frame is not between the"
+                                                 f" frames limits {min_val} - {max_val} defined by --frames")
             lims.append(min_val)
             lims.append(max_val)
         else:
@@ -170,16 +175,25 @@ def extract_pdb(pdb_id, path):
     return data
 
 
-def get_reference_cluster(traj, mask):
-    """"""
+def get_reference_frame(traj, mask):
+    """
+    Get the most common frame using a clustering on the trajectory frame.
+
+    :param traj: the trajectory.
+    :type traj: pt.Trajectory
+    :param mask: the applied mask.
+    :type mask: str
+    :return: the frame number of the cluster the most represented.
+    :rtype: int
+    """
     logging.info("Computing the trajectory clustering:")
-    clusters_data = pt.cluster.kmeans(traj, mask=mask)
+    clusters_data = pt.cluster.kmeans(traj, mask=mask, n_clusters=5, options="sieve 5 sieveseed 1")
     numpy.set_printoptions(threshold=sys.maxsize)
-    logging.info(f"\t {len(clusters_data.cluster_index)} clusters index: {clusters_data.cluster_index}")
-    logging.info(f"\t {len(clusters_data.centroids)} clusters found: {clusters_data.centroids}")
-    for centroid in clusters_data.centroids:
-        print(f"\tcentroid {centroid }: {numpy.count_nonzero(clusters_data.cluster_index == centroid )}")
-    sys.exit()
+    max_idx = numpy.bincount(clusters_data.cluster_index).argmax()
+    logging.info(f"\tframe {clusters_data.centroids[max_idx]} is the most represented cluster: "
+                 f"{numpy.bincount(clusters_data.cluster_index)[max_idx]}/{len(clusters_data.cluster_index)} "
+                 f"occurrences")
+    return int(clusters_data.centroids[max_idx])
 
 
 def rmsf_residues(tmp, data):
@@ -344,7 +358,7 @@ def plot_rmsf(src_rmsf, smp, dir_path, fmt, use_dots, subtitle, src_domains=None
     return out_path_plot
 
 
-def rms(rms_type, traj, out_dir, sample_name, format_output, use_dots_for_rmsf, info=None, frames_lim=None,
+def rms(rms_type, traj, out_dir, sample_name, format_output, use_dots_for_rmsf, ref=0, info=None, frames_lim=None,
         mask=None, atom_from_res=None, domains=None):
     """
     Compute the Root Mean Square Deviation or the Root Mean Square Fluctuation and create the plot.
@@ -361,6 +375,8 @@ def rms(rms_type, traj, out_dir, sample_name, format_output, use_dots_for_rmsf, 
     :type format_output: str
     :param use_dots_for_rmsf: if dots should be used to represent the RMSF value of each residue.
     :type use_dots_for_rmsf: bool
+    :param ref: the reference frame index, default is 0.
+    :type ref: int
     :param info: the molecular dynamics information as free text.
     :type info: str
     :param frames_lim: the frames limits.
@@ -381,7 +397,7 @@ def rms(rms_type, traj, out_dir, sample_name, format_output, use_dots_for_rmsf, 
         log_txt = f"{log_txt}, selected frames {frames_lim[0]} to {frames_lim[1]}"
     else:
         range_frames = [x for x in range(traj.n_frames)]
-    logging.info(f"{log_txt}, with frame 0 as reference:")
+    logging.info(f"{log_txt}, with frame {ref} as reference:")
 
     path_csv = f"{os.path.join(out_dir, f'{rms_type}_{sample_name}')}.csv"
 
@@ -395,26 +411,26 @@ def rms(rms_type, traj, out_dir, sample_name, format_output, use_dots_for_rmsf, 
         subtitle_plot = f"{subtitle_plot}{'  ' if subtitle_plot else ''}{info}"
 
     if rms_type == "RMSD":
-        rmsd_traj = pt.rmsd(traj, mask=mask, ref=0, frame_indices=range_frames)
+        rmsd_traj = pt.rmsd(traj, mask=mask, ref=ref, frame_indices=range_frames)
         source = pd.DataFrame({"frames": range_frames, f"{rms_type}": rmsd_traj})
         plot_line_path = plot_rmsd_line(source, sample_name, out_dir, format_output, subtitle_plot)
         plot_histogram_path = plot_rmsd_histogram(source, sample_name, out_dir, format_output, subtitle_plot)
-        plot_path = [plot_line_path, plot_histogram_path]
+        plot_path = f"{plot_line_path}, {plot_histogram_path}"
     elif rms_type == "RMSF":
         # todo: vérifier la validité de la méthode superpose
-        # superpose on the last frame of the trajectory
-        traj_superpose = traj.superpose(ref=-1, mask=mask)
+        # superpose on the reference frame used for the trajectory
+        traj_superpose = traj.superpose(ref=ref, mask=mask)
         rmsf_traj = pt.rmsf(traj_superpose, mask=mask)
         tmp_source = pd.DataFrame({"atoms": rmsf_traj.T[0], f"{rms_type}": rmsf_traj.T[1]})
         source = rmsf_residues(tmp_source, atom_from_res)
         subtitle_plot = f"{subtitle_plot}\nAverage RMSF of the atoms by residues"
-        plot_path = [plot_rmsf(source, sample_name, out_dir, format_output, use_dots_for_rmsf, subtitle_plot,
-                               src_domains=domains)]
+        plot_path = plot_rmsf(source, sample_name, out_dir, format_output, use_dots_for_rmsf, subtitle_plot,
+                              src_domains=domains)
     else:
         raise ValueError(f"{rms_type} is not a valid case, only \"RMSD\" or \"RMSF\" are allowed.")
     source.to_csv(path_csv, index=False)
     logging.info(f"\tdata saved: {path_csv}")
-    logging.info(f"\t{rms_type} plot{'s' if rms_type == 'RMSD' else ''} saved: {', '.join(plot_path)}")
+    logging.info(f"\t{rms_type} plot{'s' if rms_type == 'RMSD' else ''} saved: {plot_path}")
 
 
 if __name__ == "__main__":
@@ -441,6 +457,8 @@ if __name__ == "__main__":
     parser.add_argument("-i", "--info", required=False, type=str,
                         help="the molecular dynamics simulation complementary information, as the MD simulation time."
                              "Set as free text which will be added to the subtitle of the plots.")
+    parser.add_argument("-r", "--ref-frame", required=False, default=0, type=int,
+                        help="the reference frame index to use for the RMSD and the RMSF. Default is 0.")
     parser.add_argument("-f", "--frames", required=False, type=str,
                         help="the frames to use for the RMSD and the RMSF, the format must be two integers separated "
                              "by an hyphen, i.e to load the trajectory from the frame 500 to 2000: --frames 500-2000")
@@ -457,7 +475,7 @@ if __name__ == "__main__":
     parser.add_argument("--dots-for-residues", required=False, action="store_true",
                         help="use dots on the RMSF plot for each residue, useful when a mask is used and not all the "
                              "protein residues are used.")
-    parser.add_argument("-x", "--format", required=False, default="svg",
+    parser.add_argument("-y", "--format", required=False, default="svg",
                         choices=["eps", "jpg", "jpeg", "pdf", "pgf", "png", "ps", "raw", "svg", "svgz", "tif", "tiff"],
                         help="the output plots format: 'eps': 'Encapsulated Postscript', "
                              "'jpg': 'Joint Photographic Experts Group', 'jpeg': 'Joint Photographic Experts Group', "
@@ -491,7 +509,7 @@ if __name__ == "__main__":
     logging.info(f"version: {__version__}")
     logging.info(f"CMD: {' '.join(sys.argv)}")
     try:
-        frames_limits = check_limits(args.frames)
+        frames_limits = check_limits(args.frames, args.ref_frame)
     except argparse.ArgumentTypeError as exc:
         logging.error(exc)
         sys.exit(1)
@@ -524,7 +542,10 @@ if __name__ == "__main__":
         sys.exit(1)
 
     # get the most representative cluster
-    get_reference_cluster(trajectory, args.mask)
+    if args.ref_frame:
+        ref_frame_nb = args.ref_frame
+    else:
+        ref_frame_nb = get_reference_frame(trajectory, args.mask)
 
     # extracting .pdb file from the trajectory
     pdb_path = os.path.join(args.out, f"extracted_{args.sample.replace(' ', '_')}.pdb")
@@ -535,10 +556,10 @@ if __name__ == "__main__":
     try:
         # compute RMSD and create the plot
         rms("RMSD", trajectory, args.out, args.sample.replace(" ", "_"), args.format, args.dots_for_residues,
-            args.info, frames_limits, args.mask)
+            ref_frame_nb, args.info, frames_limits, args.mask)
         # compute RMSF and create the plot
         rms("RMSF", trajectory, args.out, args.sample.replace(" ", "_"), args.format, args.dots_for_residues,
-            args.info, frames_limits, args.mask, atom_res, domains_data)
+            ref_frame_nb, args.info, frames_limits, args.mask, atom_res, domains_data)
     except ValueError as exc:
         logging.error(exc, exc_info=True)
         sys.exit(1)
