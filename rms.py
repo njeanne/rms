@@ -25,6 +25,7 @@ import pandas as pd
 import pytraj as pt
 import matplotlib.pyplot as plt
 from matplotlib import rcParams
+from matplotlib.lines import Line2D
 import seaborn as sns
 
 
@@ -190,7 +191,7 @@ def get_reference_frame(traj, mask):
     clusters_data = pt.cluster.kmeans(traj, mask=mask, n_clusters=5, options="sieve 5 sieveseed 1")
     numpy.set_printoptions(threshold=sys.maxsize)
     max_idx = numpy.bincount(clusters_data.cluster_index).argmax()
-    logging.info(f"\tframe {clusters_data.centroids[max_idx]} is the most represented cluster: "
+    logging.info(f"\tframe {clusters_data.centroids[max_idx]} is the most representative cluster: "
                  f"{numpy.bincount(clusters_data.cluster_index)[max_idx]}/{len(clusters_data.cluster_index)} "
                  f"occurrences")
     return int(clusters_data.centroids[max_idx])
@@ -324,15 +325,17 @@ def plot_rmsf(src_rmsf, smp, dir_path, fmt, use_dots, subtitle, src_domains=None
     if src_domains is not None:
         # create the domains map and the RMSF plot
         fig, axs = plt.subplots(2, 1, layout="constrained", height_ratios=[10, 1])
-        # axes 0
+        # RMSF plot
         if use_dots:
             sns.lineplot(data=src_rmsf, x="residues", y="RMSF", ax=axs[0], marker="o")
         else:
             sns.lineplot(data=src_rmsf, x="residues", y="RMSF", ax=axs[0])
+        axs[0].axhline(src_rmsf["RMSF"].median(), color="red", lw=2)
         axs[0].set_ylabel("RMSF (\u212B)", fontweight="bold")
         axs[0].set_xlabel("residues", fontweight="bold")
         axs[0].set_title(subtitle)
-        # axes 1
+        axs[0].legend(handles=[Line2D([0], [0], color="red", lw=2, label='median RMSF')], loc='best')
+        # Domains plot
         features = []
         row = None
         for _, row in src_domains.iterrows():
@@ -347,10 +350,12 @@ def plot_rmsf(src_rmsf, smp, dir_path, fmt, use_dots, subtitle, src_domains=None
         # create the RMSF plot only
         fig, axs = plt.subplots(1, 1, layout="constrained")
         sns.lineplot(data=src_rmsf, x="residues", y="RMSF")
+        axs.axhline(src_rmsf["RMSF"].median(), color="red", lw=2)
         axs.set_ylabel("RMSF (\u212B)", fontweight="bold")
         axs.set_xlabel("residues", fontweight="bold")
         axs.set_xlim(min(src_rmsf["residues"]), max(src_rmsf["residues"] + 1))
         axs.set_title(subtitle)
+        axs.legend(handles=[Line2D([0], [0], color="red", lw=2, label='median RMSF')], loc='best')
     fig.suptitle(f"Root Mean Square Fluctuation: {smp.replace('_', ' ')}", fontsize="large", fontweight="bold")
     fig.tight_layout()
     out_path_plot = os.path.join(dir_path, f"RMSF_{smp}.{fmt}")
