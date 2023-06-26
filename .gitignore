@@ -1,6 +1,6 @@
 # project files
 .idea
-data
+data_for_dev
 results
 
 # Byte-compiled / optimized / DLL files
