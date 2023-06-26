@@ -129,14 +129,14 @@ def load_trajectories(trajectory_files, topology_file, info, frames_lim):
     logging.info("Loading trajectory file:")
     logging.info("\tComputing the whole trajectory, please be patient..")
     traj = pt.iterload(trajectory_files, top=topology_file)
-    if frames_lim and frames_lim[1] > traj.n_frames:
-        raise IndexError(f"Selected upper frame limit for RMS computation ({frames_lim[1]}) from --frames argument "
-                         f"is greater than the total frames number ({traj.n_frames}) of the MD trajectory.")
-    logging.info(f"\tFrames:\t\t{traj.n_frames}")
     logging.info(f"\tInformation:\t{info}")
     logging.info(f"\tMolecules:\t{traj.topology.n_mols}")
     logging.info(f"\tResidues:\t{traj.topology.n_residues}")
     logging.info(f"\tAtoms:\t\t{traj.topology.n_atoms}")
+    logging.info(f"\tFrames:\t\t{traj.n_frames}")
+    if frames_lim and frames_lim[1] > traj.n_frames:
+        raise IndexError(f"Selected upper frame limit for RMS computation ({frames_lim[1]}) from --frames argument "
+                         f"is greater than the total frames number ({traj.n_frames}) of the MD trajectory.")
     return traj
 
 
