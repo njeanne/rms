@@ -172,11 +172,10 @@ def link_atoms_to_residue_from_pdb(pdb_id, path):
                     res_nb += 1
     except Exception as ex:
         raise ex
-
     return data
 
 
-def get_reference_frame(traj, mask):
+def get_reference_frame(traj, mask, frames_lim, step):
     """
     Get the most common frame using a clustering on the trajectory frame.
 
@@ -184,17 +183,36 @@ def get_reference_frame(traj, mask):
     :type traj: pt.Trajectory
     :param mask: the applied mask.
     :type mask: str
+    :param frames_lim: the frames limits to use for RMSD and RMSF, used to check if this upper limit is not greater
+    than the number of frames of the simulation.
+    :type frames_lim: list or None
+    :param step: the step to apply for the frames selection.
+    :type: int
     :return: the frame number of the cluster the most represented.
     :rtype: int
     """
     logging.info("Computing the trajectory clustering:")
-    clusters_data = pt.cluster.kmeans(traj, mask=mask, n_clusters=5, options="sieve 5 sieveseed 1")
-    numpy.set_printoptions(threshold=sys.maxsize)
+    if frames_lim:
+        if step != 1:
+            logging.info(f"\tSelecting every {step} frames from {frames_lim[0]} to {frames_lim[1]}.")
+            sampled_traj = traj(frames_lim[0], frames_lim[1], step)
+        else:
+            logging.info(f"\tSelecting {frames_lim[0]} to {frames_lim[1]} frames.")
+            sampled_traj = traj(frames_lim[0], frames_lim[1])
+    else:
+        logging.info(f"\tSelecting every {step} frames of the trajectory.")
+        sampled_traj = traj(0, -1, step)
+    logging.info(f"\tClustering performed on {sampled_traj.n_frames} frames with the mask '{mask}':")
+    clusters_data = pt.cluster.kmeans(sampled_traj, mask=mask, n_clusters=5)
     max_idx = numpy.bincount(clusters_data.cluster_index).argmax()
-    logging.info(f"\tframe {clusters_data.centroids[max_idx]} is the most representative cluster: "
-                 f"{numpy.bincount(clusters_data.cluster_index)[max_idx]}/{len(clusters_data.cluster_index)} "
-                 f"occurrences")
-    return int(clusters_data.centroids[max_idx])
+    cluster_nb_with_max_frames = int(clusters_data.centroids[max_idx])
+    ref_frame_index_on_trajectory = frames_lim[0] + (cluster_nb_with_max_frames - 1) * step
+    logging.info(f"\t\tCluster with the centroid {cluster_nb_with_max_frames} is the most representative cluster on "
+                 f"the {sampled_traj.n_frames} sampled frames: {numpy.bincount(clusters_data.cluster_index)[max_idx]}/"
+                 f"{len(clusters_data.cluster_index)} occurrences")
+    logging.info(f"\t\tWhole trajectory reference frame: {ref_frame_index_on_trajectory} (sampled reference frame "
+                 f"{cluster_nb_with_max_frames}, index {cluster_nb_with_max_frames - 1})")
+    return ref_frame_index_on_trajectory
 
 
 def rmsf_residues(tmp, data):
@@ -462,11 +480,15 @@ if __name__ == "__main__":
     parser.add_argument("-i", "--info", required=False, type=str,
                         help="the molecular dynamics simulation complementary information, as the MD simulation time."
                              "Set as free text which will be added to the subtitle of the plots.")
-    parser.add_argument("-r", "--ref-frame", required=False, default=0, type=int,
-                        help="the reference frame index to use for the RMSD and the RMSF. Default is 0.")
+    parser.add_argument("-r", "--ref-frame", required=False, type=int,
+                        help="the reference frame index to use for the RMSD and the RMSF.")
     parser.add_argument("-f", "--frames", required=False, type=str,
-                        help="the frames to use for the RMSD and the RMSF, the format must be two integers separated "
-                             "by an hyphen, i.e to load the trajectory from the frame 500 to 2000: --frames 500-2000")
+                        help="the frames to use for the RMSD and the RMSF. The format must be two integers separated "
+                             "by a colon (frames 500 to 2000, use --frames 500:2000), or from a frame to the end "
+                             "(frames 500 to the end, --frames 500:) or from the first frame to a specified frame "
+                             "(first frame to the frame 2000, --frames :2000).")
+    parser.add_argument("-x", "--step", required=False, type=int, default=1,
+                        help="the step to apply for the frames selection in the trajectory.")
     parser.add_argument("-d", "--domains", required=False, type=str, default="",
                         help="the path to the CSV domains file. The domains file is used in the RMSF plot to display a "
                              "map of the domains. If the mask do not cover all the domains in the file, the domains "
@@ -541,25 +563,32 @@ if __name__ == "__main__":
         logging.error(exc, exc_info=True)
         sys.exit(1)
 
-    # get the most representative cluster
-    if args.ref_frame:
-        ref_frame_nb = args.ref_frame
-    else:
-        ref_frame_nb = get_reference_frame(trajectory, args.mask)
+    # check the trajectory limits
+    try:
+        frames_limits = check_limits(args.frames, trajectory)
+    except argparse.ArgumentTypeError as exc:
+        logging.error(exc)
+        sys.exit(1)
 
     # extracting .pdb file from the trajectory
     pdb_path = os.path.join(args.out, f"extracted_{args.sample.replace(' ', '_')}.pdb")
     pt.write_traj(pdb_path, traj=trajectory, overwrite=True, frame_indices=[0, 1])
-    # load the .pdb file
-    atom_res = extract_pdb(args.sample.replace(" ", "_"), pdb_path)
+    # get the atoms belonging to each residue from the .pdb file
+    atom_res = link_atoms_to_residue_from_pdb(args.sample.replace(" ", "_"), pdb_path)
+
+    # get the most representative cluster
+    if args.ref_frame:
+        ref_frame_idx = args.ref_frame
+    else:
+        ref_frame_idx = get_reference_frame(trajectory, args.mask, frames_limits, args.step)
 
     try:
         # compute RMSD and create the plot
         rms("RMSD", trajectory, args.out, args.sample.replace(" ", "_"), args.format, args.dots_for_residues,
-            ref_frame_nb, args.info, frames_limits, args.mask)
+            ref_frame_idx, args.info, frames_limits, args.mask)
         # compute RMSF and create the plot
         rms("RMSF", trajectory, args.out, args.sample.replace(" ", "_"), args.format, args.dots_for_residues,
-            ref_frame_nb, args.info, frames_limits, args.mask, atom_res, domains_data)
+            ref_frame_idx, args.info, frames_limits, args.mask, atom_res, domains_data)
     except ValueError as exc:
         logging.error(exc, exc_info=True)
         sys.exit(1)
