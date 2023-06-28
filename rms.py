@@ -76,41 +76,7 @@ def create_log(path, level):
     return logging
 
 
-def check_limits(value_arg, ref_frame_arg):
-    """Check if the value of the argument is valid.
-
-    :param value_arg: the value of the argument to check.
-    :type value_arg: str
-    :param ref_frame_arg: the reference frame to use for the RMSD and RMSF computations.
-    :type ref_frame_arg: int
-    :raises ArgumentTypeError: values not in the fixed limits
-    :return: the frames and region of interest limits
-    :rtype: list
-    """
-    if value_arg:
-        lims = []
-        pattern = re.compile("(\\d+)-(\\d+)")
-        match = pattern.search(value_arg)
-        if match:
-            min_val = int(match.group(1))
-            max_val = int(match.group(2))
-            if min_val >= max_val:
-                raise argparse.ArgumentTypeError(f"--frames {value_arg} : minimum value {min_val} is > or = to "
-                                                 f"maximum value {max_val}")
-            elif not min_val <= ref_frame_arg <= max_val:
-                raise argparse.ArgumentTypeError(f"--ref-frame {ref_frame_arg} : the reference frame is not between the"
-                                                 f" frames limits {min_val} - {max_val} defined by --frames")
-            lims.append(min_val)
-            lims.append(max_val)
-        else:
-            raise argparse.ArgumentTypeError(f"--frames {value_arg} is not a valid format, valid format should be: "
-                                             f"--frames <INT>-<INT>")
-    else:
-        lims = None
-    return lims
-
-
-def load_trajectories(trajectory_files, topology_file, info, frames_lim):
+def load_trajectories(trajectory_files, topology_file, info):
     """
     Load a trajectory and apply a mask if mask argument is set.
 
@@ -120,9 +86,6 @@ def load_trajectories(trajectory_files, topology_file, info, frames_lim):
     :type topology_file: str
     :param info: the molecular dynamics information as free text.
     :type info: str
-    :param frames_lim: the frames limits to use for RMSD and RMSF, used to check if this upper limit is not greater
-    than the number of frames of the simulation.
-    :type frames_lim: list or None
     :return: the loaded trajectory.
     :rtype: pt.Trajectory
     """
@@ -134,13 +97,49 @@ def load_trajectories(trajectory_files, topology_file, info, frames_lim):
     logging.info(f"\tResidues:\t{traj.topology.n_residues}")
     logging.info(f"\tAtoms:\t\t{traj.topology.n_atoms}")
     logging.info(f"\tFrames:\t\t{traj.n_frames}")
-    if frames_lim and frames_lim[1] > traj.n_frames:
-        raise IndexError(f"Selected upper frame limit for RMS computation ({frames_lim[1]}) from --frames argument "
-                         f"is greater than the total frames number ({traj.n_frames}) of the MD trajectory.")
     return traj
 
 
-def extract_pdb(pdb_id, path):
+def check_limits(limit_arg, traj):
+    """Check if the limits are valid.
+
+    :param limit_arg: the value of the limits argument to check.
+    :type limit_arg: str or None
+    :param traj: the trajectory.
+    :type traj: pt.Trajectory
+    :raises ArgumentTypeError: total number of frames not in the frames limits or invalid format of the --frames
+    argument.
+    :return: the frames limits
+    :rtype: list
+    """
+    min_val = 0
+    max_val = traj.n_frames
+    if limit_arg:
+        pattern = re.compile("(\\d*):(\\d*)")
+        match = pattern.search(limit_arg)
+        if match:
+            if match.group(1) and match.group(2):
+                min_val = int(match.group(1))
+                max_val = int(match.group(2))
+                if min_val >= max_val:
+                    raise argparse.ArgumentTypeError(f"--frames {limit_arg} : minimum value {min_val} is > or = to "
+                                                     f"maximum value {max_val}")
+            elif match.group(1):
+                min_val = int(match.group(1))
+            elif match.group(2):
+                max_val = int(match.group(2))
+        else:
+            raise argparse.ArgumentTypeError(f"--frames {limit_arg} is not a valid format, valid format should be: "
+                                             f"--frames <INT>:<INT> or --frames :<INT> or --frames <INT>:")
+    # check if the limits fit with the trajectory
+    if max_val > traj.n_frames:
+        raise IndexError(
+            f"Selected upper frame limit for RMS computation ({max_val}) from --frames argument "
+            f"is greater than the total frames number ({traj.n_frames}) of the MD trajectory.")
+    return [min_val, max_val]
+
+
+def link_atoms_to_residue_from_pdb(pdb_id, path):
     """
     Read a PDB structure from a file and create a dictionary of the residues numbers with the atoms numbers of this
     residue.
@@ -152,7 +151,8 @@ def extract_pdb(pdb_id, path):
     :return: the match between the residue number and the atoms numbers belonging to it.
     :rtype: dict
     """
-    logging.info("Extracting the PDB file from the first frame of the trajectory.")
+    logging.info("Extracting the atoms by residue from the PDB file generated with the first frame of the whole "
+                 "trajectory.")
     try:
         pdb_parser = Bio.PDB.PDBParser(QUIET=True)   # suppress PDBConstructionWarning
         struct = pdb_parser.get_structure(pdb_id, path)
@@ -513,11 +513,6 @@ if __name__ == "__main__":
 
     logging.info(f"version: {__version__}")
     logging.info(f"CMD: {' '.join(sys.argv)}")
-    try:
-        frames_limits = check_limits(args.frames, args.ref_frame)
-    except argparse.ArgumentTypeError as exc:
-        logging.error(exc)
-        sys.exit(1)
 
     domains_data = None
     if args.domains:
@@ -533,7 +528,7 @@ if __name__ == "__main__":
 
     # load the trajectory
     try:
-        trajectory = load_trajectories(args.inputs, args.topology, args.info, frames_limits)
+        trajectory = load_trajectories(args.inputs, args.topology, args.info)
     except RuntimeError as exc:
         logging.error(f"Check if the topology ({args.topology}) and/or the trajectory ({args.inputs}) files exists",
                       exc_info=True)
