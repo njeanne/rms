@@ -7,7 +7,7 @@ Created on 09 Dec. 2022
 __author__ = "Nicolas JEANNE"
 __copyright__ = "GNU General Public License"
 __email__ = "jeanne.n@chu-toulouse.fr"
-__version__ = "1.3.0"
+__version__ = "1.4.0"
 
 import argparse
 import logging
@@ -428,8 +428,7 @@ def rms(rms_type, traj, out_dir, sample_name, format_output, use_dots_for_rmsf, 
     if mask:
         subtitle_plot = f"Applied mask: {mask}"
     if frames_lim:
-        subtitle_plot = f"{subtitle_plot}{'  ' if subtitle_plot else ''}Frames used: {frames_lim[0]}-{frames_lim[1]} " \
-                        f"on {trajectory.n_frames} frames"
+        subtitle_plot = f"{subtitle_plot}{'  ' if subtitle_plot else ''}Frames used: {frames_lim[0]}-{frames_lim[1]}"
     if info:
         subtitle_plot = f"{subtitle_plot}{'  ' if subtitle_plot else ''}{info}"
 
@@ -440,7 +439,6 @@ def rms(rms_type, traj, out_dir, sample_name, format_output, use_dots_for_rmsf, 
         plot_histogram_path = plot_rmsd_histogram(source, sample_name, out_dir, format_output, subtitle_plot)
         plot_path = f"{plot_line_path}, {plot_histogram_path}"
     elif rms_type == "RMSF":
-        # todo: vérifier la validité de la méthode superpose
         # superpose on the reference frame used for the trajectory
         traj_superpose = traj.superpose(ref=ref, mask=mask)
         rmsf_traj = pt.rmsf(traj_superpose, mask=mask)
