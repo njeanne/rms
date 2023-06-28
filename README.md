@@ -21,7 +21,7 @@ The usage of the script after activating the conda environment can be displayed 
 ```
 
 The outputs are:
-- a RMSD line plot
+- a RMSD plot
 - a RMSD histogram
 - a RMSD data coordinates CSV file
 - a RMSF plot
@@ -37,8 +37,14 @@ data/MD_data_test.nc
 ```
 
 The optional arguments are:
-- `--md-time` argument is the time elapsed at each frame of the molecular dynamics simulation.
-- `--mask` argument is the mask to apply on the residues to compute the RMSs as described in [AMBER documentation](https://amber-md.github.io/pytraj/latest/atom_mask_selection.html#examples-atom-mask-selection-for-trajectory).
+- `--frames`: the frames to use for the RMSD and the RMSF computation. In example, for frames 500 to 2000, use 
+`--frames 500:2000`, or for frames 500 to the end, use `--frames 500:`, or for the first frame to the frame 2000, use 
+`--frames :2000`.
+- `--ref-frame`: if specified, this reference frame index will be used to compute the RMSD and the RMSF, if not, a 
+clustering step will be performed.
+- `--step`: to perform the clustering of the trajectory to get a reference frame, use a frame every x frame.
+- `--info`: free text to add information about the MD simulation as the elapsed time, the region..
+- `--mask` the mask to apply on the residues to compute the RMSs as described in [AMBER documentation](https://amber-md.github.io/pytraj/latest/atom_mask_selection.html#examples-atom-mask-selection-for-trajectory).
 
 The script produces the RMSD line plot:
 
@@ -78,6 +84,6 @@ the `--domains` argument **should not be used**.
 data/MD_data_test.nc
 ```
 
-Plot only the selected domain 2 for the RMSD and the RMSF:
+Plot only the selected **domain 2** for the RMSD and the RMSF:
 ![RMSD plot domain 2](doc/_static/RMSD_domain2.svg)
 ![RMSF plot domain 2](doc/_static/RMSF_domain2.svg)
