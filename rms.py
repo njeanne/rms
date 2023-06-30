@@ -578,6 +578,7 @@ if __name__ == "__main__":
 
     # get the most representative cluster
     if args.ref_frame is not None:
+        logging.info(f"No clustering performed, frame {args.ref_frame} is used as reference.")
         ref_frame_idx = args.ref_frame
         if args.step:
             logging.warning(f"--step {args.step} option used in clustering is ignored because --ref-frame "
