@@ -479,7 +479,9 @@ if __name__ == "__main__":
                         help="the molecular dynamics simulation complementary information, as the MD simulation time."
                              "Set as free text which will be added to the subtitle of the plots.")
     parser.add_argument("-r", "--ref-frame", required=False, type=int,
-                        help="the reference frame index to use for the RMSD and the RMSF.")
+                        help="the reference frame index to use for the RMSD and the RMSF. The index of the reference "
+                             "frame must be defined on the whole trajectory, not on the trajectory specified with "
+                             "'--frames' option.")
     parser.add_argument("-f", "--frames", required=False, type=str,
                         help="the frames to use for the RMSD and the RMSF. The format must be two integers separated "
                              "by a colon (frames 500 to 2000, use --frames 500:2000), or from a frame to the end "
@@ -575,8 +577,11 @@ if __name__ == "__main__":
     atom_res = link_atoms_to_residue_from_pdb(args.sample.replace(" ", "_"), pdb_path)
 
     # get the most representative cluster
-    if args.ref_frame:
+    if args.ref_frame is not None:
         ref_frame_idx = args.ref_frame
+        if args.step:
+            logging.warning(f"--step {args.step} option used in clustering is ignored because --ref-frame "
+                            f"{args.ref_frame} is defined.")
     else:
         ref_frame_idx = get_reference_frame(trajectory, args.mask, frames_limits, args.step)
 
