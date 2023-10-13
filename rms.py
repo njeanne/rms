@@ -7,7 +7,7 @@ Created on 09 Dec. 2022
 __author__ = "Nicolas JEANNE"
 __copyright__ = "GNU General Public License"
 __email__ = "jeanne.n@chu-toulouse.fr"
-__version__ = "1.4.0"
+__version__ = "1.5.0"
 
 import argparse
 import logging
@@ -175,7 +175,7 @@ def link_atoms_to_residue_from_pdb(pdb_id, path):
     return data
 
 
-def get_reference_frame(traj, mask, frames_lim, step):
+def get_reference_frame(traj, mask, frames_lim, step, path_sampled):
     """
     Get the most common frame using a clustering on the trajectory frame.
 
@@ -184,11 +184,13 @@ def get_reference_frame(traj, mask, frames_lim, step):
     :param mask: the applied mask.
     :type mask: str
     :param frames_lim: the frames limits to use for RMSD and RMSF, used to check if this upper limit is not greater
-    than the number of frames of the simulation.
+    than the simulation's number of frames.
     :type frames_lim: list or None
-    :param step: the step to apply for the frames selection.
+    :param step: the step to apply for the frames' selection.
     :type: int
-    :return: the frame number of the cluster the most represented.
+    :param path_sampled: the path of the output sampled frame as a PDB structure file.
+    :type path_sampled: str
+    :return: the most represented cluster frame number.
     :rtype: int
     """
     logging.info("Computing the trajectory clustering:")
@@ -206,12 +208,17 @@ def get_reference_frame(traj, mask, frames_lim, step):
     clusters_data = pt.cluster.kmeans(sampled_traj, mask=mask, n_clusters=5)
     max_idx = numpy.bincount(clusters_data.cluster_index).argmax()
     cluster_nb_with_max_frames = int(clusters_data.centroids[max_idx])
+
     ref_frame_index_on_trajectory = frames_lim[0] + (cluster_nb_with_max_frames - 1) * step
     logging.info(f"\t\tCluster with the centroid {cluster_nb_with_max_frames} is the most representative cluster on "
                  f"the {sampled_traj.n_frames} sampled frames: {numpy.bincount(clusters_data.cluster_index)[max_idx]}/"
                  f"{len(clusters_data.cluster_index)} occurrences")
     logging.info(f"\t\tWhole trajectory reference frame: {ref_frame_index_on_trajectory} (sampled reference frame "
                  f"{cluster_nb_with_max_frames}, index {cluster_nb_with_max_frames - 1})")
+    # write the reference frame as a PDB file
+    pt.write_traj(path_sampled, traj=traj, overwrite=True, frame_indices=[cluster_nb_with_max_frames - 1,
+                                                                          cluster_nb_with_max_frames])
+    logging.info(f"\t\tSampled frame from the clustering written to PDB format: {os.path.abspath(path_sampled)}")
     return ref_frame_index_on_trajectory
 
 
@@ -270,7 +277,7 @@ def plot_rmsd_line(src, smp, dir_path, fmt, subtitle):
     :type dir_path: str
     :param fmt: the plot output format.
     :type fmt: str
-    :param subtitle: the plot subtitle.
+    :param subtitle: the plot's subtitle.
     :type subtitle: str
     :return: the path of the plot.
     :rtype: str
@@ -299,7 +306,7 @@ def plot_rmsd_histogram(src, smp, dir_path, fmt, subtitle):
     :type dir_path: str
     :param fmt: the plot output format.
     :type fmt: str
-    :param subtitle: the plot subtitle.
+    :param subtitle: the plot's subtitle.
     :type subtitle: str
     :return: the path of the plot.
     :rtype: str
@@ -333,15 +340,15 @@ def plot_rmsf(src_rmsf, smp, dir_path, fmt, use_dots, subtitle, src_domains=None
     :type fmt: str
     :param use_dots: if dots should be used to represent the RMSF value of each residue.
     :type use_dots: bool
-    :param subtitle: the plot subtitle.
+    :param subtitle: the plot's subtitle.
     :type subtitle: str
-    :param src_domains: the domains coordinates and info.
+    :param src_domains: the domains' coordinates and info.
     :type src_domains: Pandas.Dataframe
     :return: the path of the plot.
     :rtype: str
     """
     if src_domains is not None:
-        # create the domains map and the RMSF plot
+        # create the domain's map and the RMSF plot
         fig, axs = plt.subplots(2, 1, layout="constrained", height_ratios=[10, 1])
         # RMSF plot
         if use_dots:
@@ -476,7 +483,7 @@ if __name__ == "__main__":
     parser.add_argument("-t", "--topology", required=True, type=str,
                         help="the path to the molecular dynamics topology file.")
     parser.add_argument("-i", "--info", required=False, type=str,
-                        help="the molecular dynamics simulation complementary information, as the MD simulation time."
+                        help="the molecular dynamics simulation complementary information, as the MD simulation time. "
                              "Set as free text which will be added to the subtitle of the plots.")
     parser.add_argument("-r", "--ref-frame", required=False, type=int,
                         help="the reference frame index to use for the RMSD and the RMSF. The index of the reference "
@@ -570,11 +577,11 @@ if __name__ == "__main__":
         logging.error(exc)
         sys.exit(1)
 
-    # extracting .pdb file from the trajectory
-    pdb_path = os.path.join(args.out, f"extracted_{args.sample.replace(' ', '_')}.pdb")
-    pt.write_traj(pdb_path, traj=trajectory, overwrite=True, frame_indices=[0, 1])
+    # extracting .pdb file from the first frame of the trajectory
+    pdb_first_frame_path = os.path.join(args.out, f"extracted_{args.sample.replace(' ', '_')}.pdb")
+    pt.write_traj(pdb_first_frame_path, traj=trajectory, overwrite=True, frame_indices=[0, 1])
     # get the atoms belonging to each residue from the .pdb file
-    atom_res = link_atoms_to_residue_from_pdb(args.sample.replace(" ", "_"), pdb_path)
+    atom_res = link_atoms_to_residue_from_pdb(args.sample.replace(" ", "_"), pdb_first_frame_path)
 
     # get the most representative cluster
     if args.ref_frame is not None:
@@ -584,7 +591,8 @@ if __name__ == "__main__":
             logging.warning(f"--step {args.step} option used in clustering is ignored because --ref-frame "
                             f"{args.ref_frame} is defined.")
     else:
-        ref_frame_idx = get_reference_frame(trajectory, args.mask, frames_limits, args.step)
+        ref_frame_idx = get_reference_frame(trajectory, args.mask, frames_limits, args.step,
+                                            os.path.join(args.out, f"{args.sample.replace(' ', '_')}_cluster.pdb"))
 
     try:
         # compute RMSD and create the plot
@@ -598,5 +606,5 @@ if __name__ == "__main__":
         sys.exit(1)
 
     if args.remove_pdb:
-        logging.info("Extracted PDB file removed.")
-        os.remove(pdb_path)
+        os.remove(pdb_first_frame_path)
+        logging.info("Extracted PDB file from the first frame of the trajectory removed.")
