@@ -7,7 +7,7 @@ Created on 09 Dec. 2022
 __author__ = "Nicolas JEANNE"
 __copyright__ = "GNU General Public License"
 __email__ = "jeanne.n@chu-toulouse.fr"
-__version__ = "1.5.0"
+__version__ = "1.4.0"
 
 import argparse
 import logging
@@ -216,8 +216,7 @@ def get_reference_frame(traj, mask, frames_lim, step, path_sampled):
     logging.info(f"\t\tWhole trajectory reference frame: {ref_frame_index_on_trajectory} (sampled reference frame "
                  f"{cluster_nb_with_max_frames}, index {cluster_nb_with_max_frames - 1})")
     # write the reference frame as a PDB file
-    pt.write_traj(path_sampled, traj=traj, overwrite=True, frame_indices=[cluster_nb_with_max_frames - 1,
-                                                                          cluster_nb_with_max_frames])
+    pt.write_traj(path_sampled, traj=traj, overwrite=True, frame_indices=[cluster_nb_with_max_frames])
     logging.info(f"\t\tSampled frame from the clustering written to PDB format: {os.path.abspath(path_sampled)}")
     return ref_frame_index_on_trajectory
 
