@@ -7,7 +7,7 @@ Created on 09 Dec. 2022
 __author__ = "Nicolas JEANNE"
 __copyright__ = "GNU General Public License"
 __email__ = "jeanne.n@chu-toulouse.fr"
-__version__ = "1.4.0"
+__version__ = "1.4.1"
 
 import argparse
 import logging
@@ -100,16 +100,16 @@ def load_trajectories(trajectory_files, topology_file, info):
     return traj
 
 
-def check_limits(limit_arg, traj):
+def check_limits(limit_arg, reference_frame, traj):
     """Check if the limits are valid.
 
-    :param limit_arg: the value of the limits argument to check.
+    :param limit_arg: the value of the limits' argument to check.
     :type limit_arg: str or None
     :param traj: the trajectory.
     :type traj: pt.Trajectory
-    :raises ArgumentTypeError: total number of frames not in the frames limits or invalid format of the --frames
+    :raises ArgumentTypeError: total number of frames not in the frames' limits or invalid format of the --frames
     argument.
-    :return: the frames limits
+    :return: the frames' limits.
     :rtype: list
     """
     min_val = 0
@@ -128,14 +128,19 @@ def check_limits(limit_arg, traj):
                 min_val = int(match.group(1))
             elif match.group(2):
                 max_val = int(match.group(2))
+        if reference_frame:
+            if reference_frame < min_val:
+                raise argparse.ArgumentTypeError(f"--ref-frame: {reference_frame} is below first frame \"{min_val}\".")
+            if reference_frame > max_val:
+                raise argparse.ArgumentTypeError(f"--ref-frame: {reference_frame} is higher than last frame "
+                                                 f"\"{max_val}\".")
         else:
             raise argparse.ArgumentTypeError(f"--frames {limit_arg} is not a valid format, valid format should be: "
                                              f"--frames <INT>:<INT> or --frames :<INT> or --frames <INT>:")
     # check if the limits fit with the trajectory
     if max_val > traj.n_frames:
-        raise IndexError(
-            f"Selected upper frame limit for RMS computation ({max_val}) from --frames argument "
-            f"is greater than the total frames number ({traj.n_frames}) of the MD trajectory.")
+        raise IndexError(f"Selected upper frame limit for RMS computation ({max_val}) from --frames argument is "
+                         f"greater than the total frames number ({traj.n_frames}) of the MD trajectory.")
     return [min_val, max_val]
 
 
@@ -387,8 +392,8 @@ def plot_rmsf(src_rmsf, smp, dir_path, fmt, use_dots, subtitle, src_domains=None
     return out_path_plot
 
 
-def rms(rms_type, traj, out_dir, sample_name, format_output, use_dots_for_rmsf, ref=0, info=None, frames_lim=None,
-        mask=None, atom_from_res=None, domains=None):
+def rms(rms_type, traj, out_dir, sample_name, format_output, use_dots_for_rmsf, reference_frame, info=None,
+        frames_lim=None, mask=None, atom_from_res=None, domains=None):
     """
     Compute the Root Mean Square Deviation or the Root Mean Square Fluctuation and create the plot.
 
@@ -404,17 +409,17 @@ def rms(rms_type, traj, out_dir, sample_name, format_output, use_dots_for_rmsf, 
     :type format_output: str
     :param use_dots_for_rmsf: if dots should be used to represent the RMSF value of each residue.
     :type use_dots_for_rmsf: bool
-    :param ref: the reference frame index, default is 0.
-    :type ref: int
+    :param reference_frame: the reference frame index (0 indexing).
+    :type reference_frame: int
     :param info: the molecular dynamics information as free text.
     :type info: str
-    :param frames_lim: the frames limits.
+    :param frames_lim: the frames' limits.
     :type frames_lim: list
     :param mask: the applied mask.
     :type mask: str
     :param atom_from_res: the atom number corresponding to a residue number.
     :type atom_from_res: dict
-    :param domains: the domains coordinates and info.
+    :param domains: the domains' coordinates and info.
     :type: Pandas.Dataframe
     :raises ValueError: unknown RMS type
     """
@@ -426,7 +431,7 @@ def rms(rms_type, traj, out_dir, sample_name, format_output, use_dots_for_rmsf, 
         log_txt = f"{log_txt}, selected frames {frames_lim[0]} to {frames_lim[1]}"
     else:
         range_frames = [x for x in range(traj.n_frames)]
-    logging.info(f"{log_txt}, with frame {ref} as reference:")
+    logging.info(f"{log_txt}, with frame {reference_frame} as reference:")
 
     path_csv = f"{os.path.join(out_dir, f'{rms_type}_{sample_name}')}.csv"
 
@@ -435,18 +440,19 @@ def rms(rms_type, traj, out_dir, sample_name, format_output, use_dots_for_rmsf, 
         subtitle_plot = f"Applied mask: {mask}"
     if frames_lim:
         subtitle_plot = f"{subtitle_plot}{'  ' if subtitle_plot else ''}Frames used: {frames_lim[0]}-{frames_lim[1]}"
+    subtitle_plot = f"{subtitle_plot}{' ' if subtitle_plot else ''}Reference frame: {reference_frame}"
     if info:
         subtitle_plot = f"{subtitle_plot}{'  ' if subtitle_plot else ''}{info}"
 
     if rms_type == "RMSD":
-        rmsd_traj = pt.rmsd(traj, mask=mask, ref=ref, frame_indices=range_frames)
+        rmsd_traj = pt.rmsd(traj, mask=mask, ref=reference_frame, frame_indices=range_frames)
         source = pd.DataFrame({"frames": range_frames, f"{rms_type}": rmsd_traj})
         plot_line_path = plot_rmsd_line(source, sample_name, out_dir, format_output, subtitle_plot)
         plot_histogram_path = plot_rmsd_histogram(source, sample_name, out_dir, format_output, subtitle_plot)
         plot_path = f"{plot_line_path}, {plot_histogram_path}"
     elif rms_type == "RMSF":
         # superpose on the reference frame used for the trajectory
-        traj_superpose = traj.superpose(ref=ref, mask=mask)
+        traj_superpose = traj.superpose(ref=reference_frame, mask=mask)
         rmsf_traj = pt.rmsf(traj_superpose, mask=mask)
         tmp_source = pd.DataFrame({"atoms": rmsf_traj.T[0], f"{rms_type}": rmsf_traj.T[1]})
         source = rmsf_residues(tmp_source, atom_from_res)
@@ -571,7 +577,7 @@ if __name__ == "__main__":
 
     # check the trajectory limits
     try:
-        frames_limits = check_limits(args.frames, trajectory)
+        frames_limits = check_limits(args.frames, args.ref_frame, trajectory)
     except argparse.ArgumentTypeError as exc:
         logging.error(exc)
         sys.exit(1)
