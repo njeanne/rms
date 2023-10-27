@@ -441,10 +441,10 @@ def rms(rms_type, traj, out_dir, sample_name, format_output, use_dots_for_rmsf, 
     if mask:
         subtitle_plot = f"Applied mask: {mask}"
     if frames_lim:
-        subtitle_plot = f"{subtitle_plot}{'  ' if subtitle_plot else ''}Frames used: {frames_lim[0]}-{frames_lim[1]}"
-    subtitle_plot = f"{subtitle_plot}{' ' if subtitle_plot else ''}Reference frame: {reference_frame}"
+        subtitle_plot = f"{subtitle_plot}{'    ' if subtitle_plot else ''}Frames used: {frames_lim[0]}-{frames_lim[1]}"
+    subtitle_plot = f"{subtitle_plot}{'    ' if subtitle_plot else ''}Reference frame: {reference_frame}"
     if info:
-        subtitle_plot = f"{subtitle_plot}{'  ' if subtitle_plot else ''}{info}"
+        subtitle_plot = f"{subtitle_plot}{'    ' if subtitle_plot else ''}{info}"
 
     if rms_type == "RMSD":
         rmsd_traj = pt.rmsd(traj, mask=mask, ref=reference_frame, frame_indices=range_frames)
