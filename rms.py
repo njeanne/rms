@@ -105,6 +105,8 @@ def check_limits(limit_arg, reference_frame, traj):
 
     :param limit_arg: the value of the limits' argument to check.
     :type limit_arg: str or None
+    :param reference_frame: the reference frame for the RMSD and the RMSF.
+    :type reference_frame: int
     :param traj: the trajectory.
     :type traj: pt.Trajectory
     :raises ArgumentTypeError: total number of frames not in the frames' limits or invalid format of the --frames
@@ -128,12 +130,12 @@ def check_limits(limit_arg, reference_frame, traj):
                 min_val = int(match.group(1))
             elif match.group(2):
                 max_val = int(match.group(2))
-        if reference_frame:
-            if reference_frame < min_val:
-                raise argparse.ArgumentTypeError(f"--ref-frame: {reference_frame} is below first frame \"{min_val}\".")
-            if reference_frame > max_val:
-                raise argparse.ArgumentTypeError(f"--ref-frame: {reference_frame} is higher than last frame "
-                                                 f"\"{max_val}\".")
+            if reference_frame:
+                if reference_frame < min_val:
+                    raise argparse.ArgumentTypeError(f"--ref-frame: {reference_frame} is below first frame \"{min_val}\".")
+                if reference_frame > max_val:
+                    raise argparse.ArgumentTypeError(f"--ref-frame: {reference_frame} is higher than last frame "
+                                                     f"\"{max_val}\".")
         else:
             raise argparse.ArgumentTypeError(f"--frames {limit_arg} is not a valid format, valid format should be: "
                                              f"--frames <INT>:<INT> or --frames :<INT> or --frames <INT>:")
