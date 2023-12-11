@@ -525,8 +525,8 @@ if __name__ == "__main__":
                              "'rgba': 'Raw RGBA bitmap', 'svg': 'Scalable Vector Graphics', "
                              "'svgz': 'Scalable Vector Graphics', 'tif': 'Tagged Image File Format', "
                              "'tiff': 'Tagged Image File Format'. Default is 'svg'.")
-    parser.add_argument("--remove-pdb-first-frame", required=False, action="store_true",
-                        help="if the PDB file extracted from the trajectory should be removed.")
+    parser.add_argument("--keep-pdb-first-frame", required=False, action="store_true",
+                        help="if the PDB file extracted from the trajectory should be kept.")
     parser.add_argument("-l", "--log", required=False, type=str,
                         help="the path for the log file. If this option is skipped, the log file is created in the "
                              "output directory.")
@@ -612,6 +612,6 @@ if __name__ == "__main__":
         logging.error(exc, exc_info=True)
         sys.exit(1)
 
-    if args.remove_pdb_first_frame:
+    if not args.kept_pdb_first_frame:
         os.remove(pdb_first_frame_path)
         logging.info("Extracted PDB file from the first frame of the trajectory removed.")
