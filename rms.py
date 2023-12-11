@@ -525,7 +525,7 @@ if __name__ == "__main__":
                              "'rgba': 'Raw RGBA bitmap', 'svg': 'Scalable Vector Graphics', "
                              "'svgz': 'Scalable Vector Graphics', 'tif': 'Tagged Image File Format', "
                              "'tiff': 'Tagged Image File Format'. Default is 'svg'.")
-    parser.add_argument("--remove-pdb", required=False, action="store_true",
+    parser.add_argument("--remove-pdb-first-frame", required=False, action="store_true",
                         help="if the PDB file extracted from the trajectory should be removed.")
     parser.add_argument("-l", "--log", required=False, type=str,
                         help="the path for the log file. If this option is skipped, the log file is created in the "
@@ -585,7 +585,7 @@ if __name__ == "__main__":
         sys.exit(1)
 
     # extracting .pdb file from the first frame of the trajectory
-    pdb_first_frame_path = os.path.join(args.out, f"extracted_{args.sample.replace(' ', '_')}.pdb")
+    pdb_first_frame_path = os.path.join(args.out, f"first-frame_{args.sample.replace(' ', '_')}.pdb")
     pt.write_traj(pdb_first_frame_path, traj=trajectory, overwrite=True, frame_indices=[0, 1])
     # get the atoms belonging to each residue from the .pdb file
     atom_res = link_atoms_to_residue_from_pdb(args.sample.replace(" ", "_"), pdb_first_frame_path)
@@ -612,6 +612,6 @@ if __name__ == "__main__":
         logging.error(exc, exc_info=True)
         sys.exit(1)
 
-    if args.remove_pdb:
+    if args.remove_pdb_first_frame:
         os.remove(pdb_first_frame_path)
         logging.info("Extracted PDB file from the first frame of the trajectory removed.")
