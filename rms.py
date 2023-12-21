@@ -480,9 +480,10 @@ if __name__ == "__main__":
 
     From a molecular dynamics trajectory file perform trajectory analysis. The script computes the Root Mean Square 
     Deviation (RMSD) and the Root Mean Square Fluctuation (RMSF).
-    WARNING: the mask selection is only used to compute the RMSD and RMSF plots not for loading the trajectory because 
-    if the mask defined the backbone, no hydrogen bond will be find.
-    See: https://amber-md.github.io/pytraj/latest/atom_mask_selection.html#examples-atom-mask-selection-for-trajectory
+    
+    The reference frame for the RMSD and the RMSF is computed by clustering if no reference frame is defined with the 
+    option '--ref-frame', in that case the PDB file of the most representative cluster's frame is saved in the results 
+    directory. 
     """
     parser = argparse.ArgumentParser(description=descr, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("-o", "--out", required=True, type=str, help="the path to the output directory.")
@@ -526,7 +527,7 @@ if __name__ == "__main__":
                              "'svgz': 'Scalable Vector Graphics', 'tif': 'Tagged Image File Format', "
                              "'tiff': 'Tagged Image File Format'. Default is 'svg'.")
     parser.add_argument("--keep-pdb-first-frame", required=False, action="store_true",
-                        help="if the PDB file extracted from the trajectory should be kept.")
+                        help="if the first frame of the trajectory should be kept.")
     parser.add_argument("-l", "--log", required=False, type=str,
                         help="the path for the log file. If this option is skipped, the log file is created in the "
                              "output directory.")
