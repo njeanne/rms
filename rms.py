@@ -190,7 +190,7 @@ def get_reference_frame(traj, mask, frames_lim, step, path_sampled):
     :type traj: pt.Trajectory
     :param mask: the applied mask.
     :type mask: str
-    :param frames_lim: the frames limits to use for RMSD and RMSF, used to check if this upper limit is not greater
+    :param frames_lim: the frames' limits to use for RMSD and RMSF, used to check if this upper limit is not greater
     than the simulation's number of frames.
     :type frames_lim: list or None
     :param step: the step to apply for the frames' selection.
@@ -586,7 +586,7 @@ if __name__ == "__main__":
         sys.exit(1)
 
     # extracting .pdb file from the first frame of the trajectory
-    pdb_first_frame_path = os.path.join(args.out, f"first-frame_{args.sample.replace(' ', '_')}.pdb")
+    pdb_first_frame_path = os.path.join(args.out, f"{args.sample.replace(' ', '_')}_frame-1.pdb")
     pt.write_traj(pdb_first_frame_path, traj=trajectory, overwrite=True, frame_indices=[0, 1])
     # get the atoms belonging to each residue from the .pdb file
     atom_res = link_atoms_to_residue_from_pdb(args.sample.replace(" ", "_"), pdb_first_frame_path)
