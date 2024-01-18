@@ -192,7 +192,7 @@ def get_reference_frame(traj, mask, frames_lim, step, path_sampled):
     :type mask: str
     :param frames_lim: the frames' limits to use for RMSD and RMSF, used to check if this upper limit is not greater
     than the simulation's number of frames.
-    :type frames_lim: list or None
+    :type frames_lim: list
     :param step: the step to apply for the frames' selection.
     :type: int
     :param path_sampled: the path of the output sampled frame as a PDB structure file.
@@ -201,30 +201,32 @@ def get_reference_frame(traj, mask, frames_lim, step, path_sampled):
     :rtype: int
     """
     logging.info("Computing the trajectory clustering:")
-    if frames_lim:
-        if step != 1:
-            logging.info(f"\tSelecting every {step} frames from {frames_lim[0]} to {frames_lim[1]}.")
-            sampled_traj = traj(frames_lim[0], frames_lim[1], step)
-        else:
-            logging.info(f"\tSelecting {frames_lim[0]} to {frames_lim[1]} frames.")
-            sampled_traj = traj(frames_lim[0], frames_lim[1])
+    if step != 1:
+        # sample the trajectory
+        logging.info(f"\tSelecting every {step} frames from {frames_lim[0]} to {frames_lim[1]}.")
+        traj_to_clusterize = traj(frames_lim[0], frames_lim[1], step)
     else:
-        logging.info(f"\tSelecting every {step} frames of the trajectory.")
-        sampled_traj = traj(0, -1, step)
-    logging.info(f"\tClustering performed on {sampled_traj.n_frames} frames with the mask '{mask}':")
-    clusters_data = pt.cluster.kmeans(sampled_traj, mask=mask, n_clusters=5)
-    max_idx = numpy.bincount(clusters_data.cluster_index).argmax()
-    cluster_nb_with_max_frames = int(clusters_data.centroids[max_idx])
-
-    ref_frame_index_on_trajectory = frames_lim[0] + (cluster_nb_with_max_frames - 1) * step
-    logging.info(f"\t\tCluster with the centroid {cluster_nb_with_max_frames} is the most representative cluster on "
-                 f"the {sampled_traj.n_frames} sampled frames: {numpy.bincount(clusters_data.cluster_index)[max_idx]}/"
-                 f"{len(clusters_data.cluster_index)} occurrences")
+        logging.info(f"\tSelecting {frames_lim[0]} to {frames_lim[1]} frames.")
+        traj_to_clusterize = traj(frames_lim[0], frames_lim[1])
+    logging.info(f"\tClustering performed on {traj_to_clusterize.n_frames} frames with the mask '{mask}':")
+    clusters_data = pt.cluster.kmeans(traj_to_clusterize, mask=mask, n_clusters=5)
+    clusters_frames_counts = numpy.bincount(clusters_data.cluster_index)
+    max_idx = clusters_frames_counts.argmax()
+    most_frequent_cluster_centroid_frame = int(clusters_data.centroids[max_idx])
+    ref_frame_index_on_trajectory = frames_lim[0] + (most_frequent_cluster_centroid_frame - 1) * step
+    logging.info(f"\t\tCluster {max_idx} with the centroid frame {most_frequent_cluster_centroid_frame} is the most "
+                 f"representative cluster on the {traj_to_clusterize.n_frames} sampled frames: "
+                 f"{clusters_frames_counts[max_idx]}/{len(clusters_data.cluster_index)} "
+                 f"occurrences")
     logging.info(f"\t\tWhole trajectory reference frame: {ref_frame_index_on_trajectory} (sampled reference frame "
-                 f"{cluster_nb_with_max_frames}, index {cluster_nb_with_max_frames - 1})")
+                 f"{most_frequent_cluster_centroid_frame}, index {most_frequent_cluster_centroid_frame - 1})")
     # write the reference frame as a PDB file
-    pt.write_traj(path_sampled, traj=traj, overwrite=True, frame_indices=[cluster_nb_with_max_frames])
+    pt.write_traj(path_sampled, traj=traj, overwrite=True, frame_indices=[most_frequent_cluster_centroid_frame])
     logging.info(f"\t\tSampled frame from the clustering written to PDB format: {os.path.abspath(path_sampled)}")
+    logging.info("\t\tClusters size:")
+    # display information on the cluster size
+    for idx in range(len(clusters_frames_counts)):
+        logging.info(f"\t\t\t- cluster {idx}: {clusters_frames_counts[idx]}/{len(clusters_data.cluster_index)} frames")
     return ref_frame_index_on_trajectory
 
 
@@ -564,6 +566,7 @@ if __name__ == "__main__":
     rcParams["figure.figsize"] = 15, 12
 
     # load the trajectory
+    trajectory = None
     try:
         trajectory = load_trajectories(args.inputs, args.topology, args.info)
     except RuntimeError as exc:
@@ -579,6 +582,7 @@ if __name__ == "__main__":
         sys.exit(1)
 
     # check the trajectory limits
+    frames_limits = None
     try:
         frames_limits = check_limits(args.frames, args.ref_frame, trajectory)
     except argparse.ArgumentTypeError as exc:
@@ -613,6 +617,6 @@ if __name__ == "__main__":
         logging.error(exc, exc_info=True)
         sys.exit(1)
 
-    if not args.kept_pdb_first_frame:
+    if not args.keep_pdb_first_frame:
         os.remove(pdb_first_frame_path)
         logging.info("Extracted PDB file from the first frame of the trajectory removed.")
