@@ -600,8 +600,8 @@ if __name__ == "__main__":
         logging.info(f"No clustering performed, frame {args.ref_frame} is used as reference.")
         ref_frame_idx = args.ref_frame
         if args.step:
-            logging.warning(f"--step {args.step} option used in clustering is ignored because --ref-frame "
-                            f"{args.ref_frame} is defined.")
+            logging.warning(f"--step option used for clustering is ignored because --ref-frame {args.ref_frame} is "
+                            f"defined.")
     else:
         ref_frame_idx = get_reference_frame(trajectory, args.mask, frames_limits, args.step,
                                             os.path.join(args.out, f"{args.sample.replace(' ', '_')}_cluster.pdb"))
