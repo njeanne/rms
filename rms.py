@@ -7,7 +7,7 @@ Created on 09 Dec. 2022
 __author__ = "Nicolas JEANNE"
 __copyright__ = "GNU General Public License"
 __email__ = "jeanne.n@chu-toulouse.fr"
-__version__ = "1.4.1"
+__version__ = "1.4.2"
 
 import argparse
 import logging
@@ -208,25 +208,27 @@ def get_reference_frame(traj, mask, frames_lim, step, path_sampled):
     else:
         logging.info(f"\tSelecting {frames_lim[0]} to {frames_lim[1]} frames.")
         traj_to_clusterize = traj(frames_lim[0], frames_lim[1])
-    logging.info(f"\tClustering performed on {traj_to_clusterize.n_frames} frames with the mask '{mask}':")
+    logging.info(f"\tClustering performed on {traj_to_clusterize.n_frames} frames with the mask '{mask}'.")
     clusters_data = pt.cluster.kmeans(traj_to_clusterize, mask=mask, n_clusters=5)
     clusters_frames_counts = numpy.bincount(clusters_data.cluster_index)
+    # display information on the clusters' size and centroids
+    logging.info("\tClusters size and centroids:")
+    for idx in range(len(clusters_frames_counts)):
+        logging.info(f"\t\t- cluster {idx}: {clusters_frames_counts[idx]}/{len(clusters_data.cluster_index)} frames, "
+                     f"with frame {clusters_data.centroids[idx]} as centroid.")
+    # get the centroid of the biggest cluster
     max_idx = clusters_frames_counts.argmax()
     most_frequent_cluster_centroid_frame = int(clusters_data.centroids[max_idx])
     ref_frame_index_on_trajectory = frames_lim[0] + (most_frequent_cluster_centroid_frame - 1) * step
-    logging.info(f"\t\tCluster {max_idx} with the centroid frame {most_frequent_cluster_centroid_frame} is the most "
+    logging.info(f"\tCluster {max_idx} with the centroid frame {most_frequent_cluster_centroid_frame} is the most "
                  f"representative cluster on the {traj_to_clusterize.n_frames} sampled frames: "
                  f"{clusters_frames_counts[max_idx]}/{len(clusters_data.cluster_index)} "
                  f"occurrences")
-    logging.info(f"\t\tWhole trajectory reference frame: {ref_frame_index_on_trajectory} (sampled reference frame "
+    logging.info(f"\tWhole trajectory reference frame: {ref_frame_index_on_trajectory} (sampled reference frame "
                  f"{most_frequent_cluster_centroid_frame}, index {most_frequent_cluster_centroid_frame - 1})")
     # write the reference frame as a PDB file
     pt.write_traj(path_sampled, traj=traj, overwrite=True, frame_indices=[most_frequent_cluster_centroid_frame])
     logging.info(f"\t\tSampled frame from the clustering written to PDB format: {os.path.abspath(path_sampled)}")
-    logging.info("\t\tClusters size:")
-    # display information on the cluster size
-    for idx in range(len(clusters_frames_counts)):
-        logging.info(f"\t\t\t- cluster {idx}: {clusters_frames_counts[idx]}/{len(clusters_data.cluster_index)} frames")
     return ref_frame_index_on_trajectory
 
 
