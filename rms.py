@@ -20,12 +20,13 @@ import Bio.PDB
 from dna_features_viewer import GraphicFeature, GraphicRecord
 import matplotlib
 matplotlib.use("Agg")
-import numpy
-import pandas as pd
-import pytraj as pt
 import matplotlib.pyplot as plt
 from matplotlib import rcParams
 from matplotlib.lines import Line2D
+import numpy
+import pandas as pd
+import pytraj as pt
+import scipy
 import seaborn as sns
 
 
@@ -339,6 +340,25 @@ def plot_rmsd_histogram(src, smp, dir_path, fmt, subtitle):
     plt.clf()
     # create the histogram
     rms_histogram_ax = sns.histplot(data=src, x="RMSD", stat="density", kde=True)
+    # compute the local maximum peaks
+    kernel_density_estimation_line = rms_histogram_ax.lines[0]
+    x_kernel_density_estimation = kernel_density_estimation_line.get_xdata()
+    y_kernel_density_estimation = kernel_density_estimation_line.get_ydata()
+    max_y_peaks = scipy.signal.find_peaks(y_kernel_density_estimation)
+    for max_peak_index in max_y_peaks[0]:
+        rms_histogram_ax.vlines(x=x_kernel_density_estimation[max_peak_index],
+                                ymin=0, ymax=y_kernel_density_estimation[max_peak_index],color="tomato", ls="--", lw=2)
+    # compute the histogram amplitude
+    y_axis_limits = rms_histogram_ax.get_ylim()
+    amplitude_y_coord = y_axis_limits[1] - (y_axis_limits[1] - y_axis_limits[0]) * 0.01
+    amplitude = x_kernel_density_estimation[-1] - x_kernel_density_estimation[0]
+    rms_histogram_ax.hlines(y=amplitude_y_coord,
+                            xmin=x_kernel_density_estimation[0],
+                            xmax=x_kernel_density_estimation[-1],
+                            color="tomato", ls="-.", lw=2)
+    rms_histogram_ax.text(x=amplitude / 2, y=amplitude_y_coord + 0.015, s=f"amplitude: {amplitude:.3f} \u212B",
+                          color="tomato", ha="center")
+    # add labels to the plot
     histogram = rms_histogram_ax.get_figure()
     plt.suptitle(f"Root Mean Square Deviation histogram: {smp.replace('_', ' ')}", fontsize="large", fontweight="bold")
     plt.title(subtitle)
@@ -347,6 +367,7 @@ def plot_rmsd_histogram(src, smp, dir_path, fmt, subtitle):
     out_path_plot = os.path.join(dir_path, f"RMSD_histogram_{smp}")
     out_path_plot = f"{out_path_plot}.{fmt}"
     histogram.savefig(out_path_plot)
+
     return out_path_plot
 
 
