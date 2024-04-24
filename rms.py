@@ -7,7 +7,7 @@ Created on 09 Dec. 2022
 __author__ = "Nicolas JEANNE"
 __copyright__ = "GNU General Public License"
 __email__ = "jeanne.n@chu-toulouse.fr"
-__version__ = "1.4.2"
+__version__ = "1.5.0"
 
 import argparse
 import logging
@@ -19,7 +19,7 @@ import sys
 import Bio.PDB
 from dna_features_viewer import GraphicFeature, GraphicRecord
 import matplotlib
-matplotlib.use('Agg')
+matplotlib.use("Agg")
 import numpy
 import pandas as pd
 import pytraj as pt
@@ -91,13 +91,21 @@ def load_trajectories(trajectory_files, topology_file, info):
     """
     logging.info("Loading trajectory file:")
     logging.info("\tComputing the whole trajectory, please be patient..")
-    traj = pt.iterload(trajectory_files, top=topology_file)
-    logging.info(f"\tInformation:\t{info}")
-    logging.info(f"\tMolecules:\t{traj.topology.n_mols}")
-    logging.info(f"\tResidues:\t{traj.topology.n_residues}")
-    logging.info(f"\tAtoms:\t\t{traj.topology.n_atoms}")
-    logging.info(f"\tFrames:\t\t{traj.n_frames}")
-    return traj
+    try:
+        traj = pt.iterload(trajectory_files, top=topology_file)
+        logging.info(f"\tInformation:\t{info}")
+        logging.info(f"\tMolecules:\t{traj.topology.n_mols}")
+        logging.info(f"\tResidues:\t{traj.topology.n_residues}")
+        logging.info(f"\tAtoms:\t\t{traj.topology.n_atoms}")
+        logging.info(f"\tFrames:\t\t{traj.n_frames}")
+        return traj
+    except RuntimeError:
+        for traj_file in trajectory_files:
+            if not os.path.exists(traj_file):
+                logging.error(f"The trajectory file {traj_file} does not exists.")
+        if not os.path.exists(topology_file):
+            logging.error(f"The topology file {topology_file} does not exists.")
+        sys.exit(1)
 
 
 def check_limits(limit_arg, reference_frame, traj):
@@ -155,7 +163,7 @@ def link_atoms_to_residue_from_pdb(pdb_id, path):
     :type pdb_id: str
     :param path: the path to the PDB file.
     :type path: str
-    :return: the match between the residue number and the atoms numbers belonging to it.
+    :return: the match between the residue number and the atoms' numbers belonging to it.
     :rtype: dict
     """
     logging.info("Extracting the atoms by residue from the PDB file generated with the first frame of the whole "
@@ -182,7 +190,7 @@ def link_atoms_to_residue_from_pdb(pdb_id, path):
     return data
 
 
-def get_reference_frame(traj, mask, frames_lim, step, path_sampled):
+def get_reference_frame(traj, mask, frames_lim, step, path_pdb_dir, smp):
     """
     Get the most common frame using a clustering on the trajectory frame.
 
@@ -195,8 +203,10 @@ def get_reference_frame(traj, mask, frames_lim, step, path_sampled):
     :type frames_lim: list
     :param step: the step to apply for the frames' selection.
     :type: int
-    :param path_sampled: the path of the output sampled frame as a PDB structure file.
-    :type path_sampled: str
+    :param path_pdb_dir: the path of the PDB clusters or first frame reference structure file.
+    :type path_pdb_dir: str
+    :param smp: the sample name.
+    :type smp: str
     :return: the most represented cluster frame number.
     :rtype: int
     """
@@ -216,6 +226,11 @@ def get_reference_frame(traj, mask, frames_lim, step, path_sampled):
     for idx in range(len(clusters_frames_counts)):
         logging.info(f"\t\t- cluster {idx}: {clusters_frames_counts[idx]}/{len(clusters_data.cluster_index)} frames, "
                      f"with frame {clusters_data.centroids[idx]} as centroid.")
+        cluster_centroid_frame = int(clusters_data.centroids[idx])
+        # write the reference frame as a PDB file
+        pt.write_traj(os.path.join(path_pdb_dir, f"{smp.replace(' ', '_')}_cluster{idx}.pdb"), traj=traj,
+                      overwrite=True, frame_indices=[cluster_centroid_frame])
+    logging.info(f"\tClusters centroids frames saved in {path_pdb_dir}")
     # get the centroid of the biggest cluster
     max_idx = clusters_frames_counts.argmax()
     most_frequent_cluster_centroid_frame = int(clusters_data.centroids[max_idx])
@@ -226,9 +241,8 @@ def get_reference_frame(traj, mask, frames_lim, step, path_sampled):
                  f"occurrences")
     logging.info(f"\tWhole trajectory reference frame: {ref_frame_index_on_trajectory} (sampled reference frame "
                  f"{most_frequent_cluster_centroid_frame}, index {most_frequent_cluster_centroid_frame - 1})")
-    # write the reference frame as a PDB file
-    pt.write_traj(path_sampled, traj=traj, overwrite=True, frame_indices=[most_frequent_cluster_centroid_frame])
-    logging.info(f"\t\tSampled frame from the clustering written to PDB format: {os.path.abspath(path_sampled)}")
+
+    logging.info(f"\t\tSampled frame from the clustering written to PDB format: {os.path.abspath(path_pdb_dir)}")
     return ref_frame_index_on_trajectory
 
 
@@ -530,8 +544,6 @@ if __name__ == "__main__":
                              "'rgba': 'Raw RGBA bitmap', 'svg': 'Scalable Vector Graphics', "
                              "'svgz': 'Scalable Vector Graphics', 'tif': 'Tagged Image File Format', "
                              "'tiff': 'Tagged Image File Format'. Default is 'svg'.")
-    parser.add_argument("--keep-pdb-first-frame", required=False, action="store_true",
-                        help="if the first frame of the trajectory should be kept.")
     parser.add_argument("-l", "--log", required=False, type=str,
                         help="the path for the log file. If this option is skipped, the log file is created in the "
                              "output directory.")
@@ -592,12 +604,14 @@ if __name__ == "__main__":
         sys.exit(1)
 
     # extracting .pdb file from the first frame of the trajectory
-    pdb_first_frame_path = os.path.join(args.out, f"{args.sample.replace(' ', '_')}_frame-1.pdb")
+    reference_pdb_dir = os.path.join(args.out, f"RMS_{args.sample.replace(' ', '_')}_pdb_reference_frames")
+    os.makedirs(reference_pdb_dir, exist_ok=True)
+    pdb_first_frame_path = os.path.join(reference_pdb_dir, f"{args.sample.replace(' ', '_')}_frame-1.pdb")
     pt.write_traj(pdb_first_frame_path, traj=trajectory, overwrite=True, frame_indices=[0, 1])
     # get the atoms belonging to each residue from the .pdb file
     atom_res = link_atoms_to_residue_from_pdb(args.sample.replace(" ", "_"), pdb_first_frame_path)
 
-    # get the most representative cluster
+    # get the most representative cluster or the first frame
     if args.ref_frame is not None:
         logging.info(f"No clustering performed, frame {args.ref_frame} is used as reference.")
         ref_frame_idx = args.ref_frame
@@ -605,8 +619,8 @@ if __name__ == "__main__":
             logging.warning(f"--step option used for clustering is ignored because --ref-frame {args.ref_frame} is "
                             f"defined.")
     else:
-        ref_frame_idx = get_reference_frame(trajectory, args.mask, frames_limits, args.step,
-                                            os.path.join(args.out, f"{args.sample.replace(' ', '_')}_cluster.pdb"))
+        ref_frame_idx = get_reference_frame(trajectory, args.mask, frames_limits, args.step, reference_pdb_dir,
+                                            args.sample)
 
     try:
         # compute RMSD and create the plot
@@ -618,7 +632,3 @@ if __name__ == "__main__":
     except ValueError as exc:
         logging.error(exc, exc_info=True)
         sys.exit(1)
-
-    if not args.keep_pdb_first_frame:
-        os.remove(pdb_first_frame_path)
-        logging.info("Extracted PDB file from the first frame of the trajectory removed.")
