@@ -356,18 +356,31 @@ def plot_rmsd_histogram(src, smp, dir_path, fmt, subtitle):
     rms_histogram_ax.hlines(y=amplitude_y_coord,
                             xmin=x_kernel_density_estimation[0],
                             xmax=x_kernel_density_estimation[-1],
-                            color="tomato", ls="-.", lw=2)
-    rms_histogram_ax.text(x=amplitude / 2, y=amplitude_y_coord + 0.015, s=f"amplitude: {amplitude:.3f} \u212B",
+                            label="amplitude", color="tomato", ls="-.", lw=2)
+    rms_histogram_ax.text(x=amplitude / 2, y=amplitude_y_coord + 0.015, s=f"{amplitude:.3f} \u212B",
                           color="tomato", ha="center")
     # add labels to the plot
     histogram = rms_histogram_ax.get_figure()
     plt.suptitle(f"Root Mean Square Deviation histogram: {smp.replace('_', ' ')}", fontsize="large", fontweight="bold")
-    plt.title(subtitle)
+    plt.title(subtitle, y=1.05)
     plt.xlabel("RMSD (\u212B)", fontweight="bold")
     plt.ylabel("Density", fontweight="bold")
-    out_path_plot = os.path.join(dir_path, f"RMSD_histogram_{smp}")
-    out_path_plot = f"{out_path_plot}.{fmt}"
+    annotation_labels = ["Local maximum density peaks", "RMSD amplitude"]
+    handles, _ = rms_histogram_ax.get_legend_handles_labels()
+    plt.legend(handles=handles[-2:], labels=annotation_labels)
+    sns.move_legend(rms_histogram_ax, "lower center", bbox_to_anchor=(.5, 1), ncol=2, title=None, frameon=False,)
+    out_path_basename = os.path.join(dir_path, f"RMSD_histogram_{smp}")
+    out_path_plot = f"{out_path_basename}.{fmt}"
     histogram.savefig(out_path_plot)
+
+    # save the data to a file
+    dict_histo = {"RMSD amplitude": [amplitude]}
+    for idx in range(len(max_y_peaks[0])):
+        dict_histo[f"local max density peak {idx + 1}"] = [y_kernel_density_estimation[max_y_peaks[0][idx]]]
+    df_histo = pd.DataFrame(dict_histo)
+    out_path_histo_info = f"{out_path_basename}.csv"
+    df_histo.to_csv(out_path_histo_info, index=False, sep=",")
+    logging.info(f"\tRMSD histogram RMSD amplitude and local density peaks saved: {out_path_histo_info}")
 
     return out_path_plot
 
@@ -504,7 +517,7 @@ def rms(rms_type, traj, out_dir, sample_name, format_output, use_dots_for_rmsf, 
     else:
         raise ValueError(f"{rms_type} is not a valid case, only \"RMSD\" or \"RMSF\" are allowed.")
     source.to_csv(path_csv, index=False)
-    logging.info(f"\tdata saved: {path_csv}")
+    logging.info(f"\t{rms_type} data saved: {path_csv}")
     logging.info(f"\t{rms_type} plot{'s' if rms_type == 'RMSD' else ''} saved: {plot_path}")
 
 
