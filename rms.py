@@ -374,9 +374,10 @@ def plot_rmsd_histogram(src, smp, dir_path, fmt, subtitle):
     histogram.savefig(out_path_plot)
 
     # save the data to a file
-    dict_histo = {"RMSD amplitude": [amplitude]}
+    dict_histo = {"RMSD amplitude": [round(amplitude, 3)]}
     for idx in range(len(max_y_peaks[0])):
-        dict_histo[f"local max density peak {idx + 1}"] = [y_kernel_density_estimation[max_y_peaks[0][idx]]]
+        dict_histo[f"RMSD local max density peak {idx + 1}"] = [round(x_kernel_density_estimation[max_y_peaks[0][idx]],
+                                                                      3)]
     df_histo = pd.DataFrame(dict_histo)
     out_path_histo_info = f"{out_path_basename}.csv"
     df_histo.to_csv(out_path_histo_info, index=False, sep=",")
