@@ -90,7 +90,7 @@ def load_trajectories(trajectory_files, topology_file, info):
     :return: the loaded trajectory.
     :rtype: pt.Trajectory
     """
-    logging.info("Loading trajectory file:")
+    logging.info("Loading the trajectory files:")
     logging.info("\tComputing the whole trajectory, please be patient..")
     try:
         traj = pt.iterload(trajectory_files, top=topology_file)
@@ -310,7 +310,7 @@ def plot_rmsd_line(src, smp, dir_path, fmt, subtitle):
     rms_line_ax = sns.lineplot(data=src, x="frames", y="RMSD")
     plot = rms_line_ax.get_figure()
     plt.suptitle(f"Root Mean Square Deviation: {smp.replace('_', ' ')}", fontsize="large", fontweight="bold")
-    plt.title(subtitle)
+    plt.title(subtitle, y=1.05)
     plt.xlabel("frames", fontweight="bold")
     plt.ylabel("RMSD (\u212B)", fontweight="bold")
     out_path_plot = os.path.join(dir_path, f"RMSD_{smp}")
@@ -347,7 +347,8 @@ def plot_rmsd_histogram(src, smp, dir_path, fmt, subtitle):
     max_y_peaks = scipy.signal.find_peaks(y_kernel_density_estimation)
     for max_peak_index in max_y_peaks[0]:
         rms_histogram_ax.vlines(x=x_kernel_density_estimation[max_peak_index],
-                                ymin=0, ymax=y_kernel_density_estimation[max_peak_index],color="tomato", ls="--", lw=2)
+                                ymin=0, ymax=y_kernel_density_estimation[max_peak_index],
+                                label="local maximal density peak", color="purple", ls="--", lw=2)
     # compute the histogram amplitude
     y_axis_limits = rms_histogram_ax.get_ylim()
     amplitude_y_coord = y_axis_limits[1] - (y_axis_limits[1] - y_axis_limits[0]) * 0.01
@@ -403,7 +404,7 @@ def plot_rmsf(src_rmsf, smp, dir_path, fmt, use_dots, subtitle, src_domains=None
         axs[0].axhline(src_rmsf["RMSF"].median(), color="red", lw=2)
         axs[0].set_ylabel("RMSF (\u212B)", fontweight="bold")
         axs[0].set_xlabel("residues", fontweight="bold")
-        axs[0].set_title(subtitle)
+        axs[0].set_title(subtitle, y=1.05)
         axs[0].legend(handles=[Line2D([0], [0], color="red", lw=2, label='median RMSF')], loc='best')
         # Domains plot
         features = []
