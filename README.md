@@ -52,7 +52,13 @@ The script produces the RMSD line plot:
 
 the RMSD histogram:
 
-![RMSD line plot](doc/_static/RMSD_histogram.svg)
+![RMSD histogram](doc/_static/RMSD_histogram.svg)
+
+and the CSV file with the histogram amplitude and the local maximum density peaks:
+
+|RMSD amplitude    |local max density peak 1|local max density peak 2|
+|------------------|------------------------|------------------------|
+|13.557            |5.791                   |9.878                   |
 
 and the RMSF plot:
 
@@ -86,4 +92,5 @@ data/MD_data_test.nc
 
 Plot only the selected **domain 2** for the RMSD and the RMSF:
 ![RMSD plot domain 2](doc/_static/RMSD_domain2.svg)
+![RMSD histogram domain 2](doc/_static/RMSD_histogram_domain2.svg)
 ![RMSF plot domain 2](doc/_static/RMSF_domain2.svg)
