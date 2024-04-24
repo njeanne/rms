@@ -357,8 +357,8 @@ def plot_rmsd_histogram(src, smp, dir_path, fmt, subtitle):
                             xmin=x_kernel_density_estimation[0],
                             xmax=x_kernel_density_estimation[-1],
                             label="amplitude", color="tomato", ls="-.", lw=2)
-    rms_histogram_ax.text(x=amplitude / 2, y=amplitude_y_coord + 0.015, s=f"{amplitude:.3f} \u212B",
-                          color="tomato", ha="center")
+    rms_histogram_ax.annotate(text=f"{amplitude:.3f} \u212B", xy=(amplitude / 2, amplitude_y_coord),
+                              xytext=(5, 12), textcoords="offset points", ha="center", va="top", color="tomato")
     # add labels to the plot
     histogram = rms_histogram_ax.get_figure()
     plt.suptitle(f"Root Mean Square Deviation histogram: {smp.replace('_', ' ')}", fontsize="large", fontweight="bold")
